@@ -2,10 +2,15 @@
 
 API REST de e-commerce en **.NET 10** con arquitectura en capas. Esta carpeta describe qué hace cada parte del sistema para facilitar revisiones, onboarding y pruebas.
 
+## ¿Empiezas en .NET?
+
+Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** — explica `Program.cs`, inyección de dependencias, Minimal APIs, middleware, `Endpoints/` y el resto del código para quien empieza en .NET.
+
 ## Índice
 
 | Documento | Contenido |
 |-----------|-----------|
+| [Guía para principiantes](./00-guia-para-principiantes.md) | Explicación del código para quien empieza en .NET |
 | [Arquitectura](./01-arquitectura.md) | Capas, proyectos y dependencias |
 | [Configuración y ejecución](./02-configuracion-y-ejecucion.md) | Perfiles, BD, variables, cómo arrancar |
 | [Endpoints API](./03-api-endpoints.md) | Rutas, métodos, auth y ejemplos |
