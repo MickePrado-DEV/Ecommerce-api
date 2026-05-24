@@ -2,17 +2,30 @@
 
 Documentación del backend: [`../docs/`](../docs/README.md)
 
-## Archivos
+## Qué importar en Postman
+
+Solo estos **2 archivos JSON** (no importes la carpeta `scripts/`):
 
 | Archivo | Descripción |
 |---------|-------------|
 | `Ecommerce-API.postman_collection.json` | Colección con todos los endpoints |
 | `Ecommerce-Local.postman_environment.json` | Variables de entorno local |
 
+Los scripts de login, sesión y variables ya van **dentro** del JSON de la colección (pestañas **Tests** y **Pre-request** en Postman). No hace falta copiar nada manualmente.
+
+### Carpeta `scripts/` (solo para el repo, no para Postman)
+
+| Archivo | Para qué sirve |
+|---------|----------------|
+| `save-auth-session.js` | Referencia del código de sesión (ya está embebido en la colección) |
+| `enrich-collection-descriptions.js` | Herramienta Node para regenerar descripciones en el JSON (`node postman/scripts/enrich-collection-descriptions.js`) |
+
+Puedes ignorar `scripts/` al usar Postman.
+
 ## Importar en Postman
 
 1. Abre Postman → **Import**
-2. Arrastra ambos archivos JSON
+2. Arrastra **solo** los dos `.json` de arriba (o selecciónalos con Upload)
 3. Selecciona el entorno **Ecommerce - Local** (esquina superior derecha)
 
 ## Antes de probar
