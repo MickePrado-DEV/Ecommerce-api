@@ -68,6 +68,14 @@ public static class DbSeeder
         db.ProductImages.Add(new ProductImage { Product = product, Url = "https://placehold.co/600x400", SortOrder = 1, IsPrimary = true });
         await db.SaveChangesAsync();
         db.Inventories.Add(new Inventory { VariantId = variant.Id, QuantityOnHand = 50 });
+        db.Covers.Add(new Cover
+        {
+            Title = "Bienvenido",
+            ImageUrl = "https://placehold.co/1200x400",
+            LinkUrl = "/catalog/products",
+            SortOrder = 1,
+            IsActive = true
+        });
         db.Drivers.Add(new Driver { Name = "Juan Repartidor", Phone = "+5215550001", IsActive = true });
         await db.SaveChangesAsync();
     }

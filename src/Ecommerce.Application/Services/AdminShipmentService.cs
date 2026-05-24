@@ -60,4 +60,23 @@ public class AdminShipmentService(IOrderRepository orders, IShipmentRepository s
         var saved = await shipments.SaveDriverAsync(driver, ct);
         return new DriverDto(saved.Id, saved.Name, saved.Phone, saved.IsActive);
     }
+
+    public Task DeleteDriverAsync(Guid id, CancellationToken ct = default) =>
+        shipments.DeleteDriverAsync(id, ct);
+
+    public async Task<IReadOnlyList<ShipmentSummaryDto>> ListShipmentsAsync(int page, int pageSize, CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var list = await shipments.ListAsync(page, pageSize, ct);
+        return list.Select(s => new ShipmentSummaryDto(
+            s.Id, s.OrderId, s.Status.ToString(), s.TrackingNumber,
+            s.Driver?.Name, s.CreatedAt)).ToList();
+    }
+
+    public Task MarkInTransitAsync(Guid shipmentId, CancellationToken ct = default) =>
+        shipments.UpdateStatusAsync(shipmentId, ShipmentStatus.InTransit, ct);
+
+    public Task MarkDeliveredAsync(Guid shipmentId, CancellationToken ct = default) =>
+        shipments.UpdateStatusAsync(shipmentId, ShipmentStatus.Delivered, ct);
 }

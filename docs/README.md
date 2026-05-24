@@ -17,6 +17,7 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 | [Autenticación y permisos](./04-autenticacion-y-permisos.md) | JWT, roles, claims, admin 403 |
 | [Dominio y base de datos](./05-dominio-y-base-de-datos.md) | Entidades, relaciones, inventario |
 | [Flujos de negocio](./06-flujos-de-negocio.md) | Checkout, pago, despacho, stock |
+| [Comparativa rutas Laravel](./07-comparativa-rutas-laravel.md) | Qué falta vs web/admin Laravel original |
 
 ## Recursos relacionados
 

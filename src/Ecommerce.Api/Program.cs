@@ -72,16 +72,19 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-    app.MapGet("/health", async (EcommerceDbContext db) =>
+    app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+    app.MapGet("/ready", async (EcommerceDbContext db) =>
     {
         var canConnect = await db.Database.CanConnectAsync();
-        return Results.Ok(new { status = canConnect ? "ok" : "degraded", database = canConnect ? "connected" : "disconnected" });
+        return canConnect ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503);
     });
 
     var api = app.MapGroup("/api/v1");
     api.MapAuthEndpoints();
     api.MapCatalogEndpoints();
     api.MapCartEndpoints();
+    api.MapAddressEndpoints();
     api.MapCheckoutEndpoints();
     api.MapOrderEndpoints();
     api.MapAdminEndpoints();

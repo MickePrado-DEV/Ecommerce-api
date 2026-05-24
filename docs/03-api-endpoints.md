@@ -10,7 +10,10 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/health` | 🔓 | Estado de la API y conexión a BD |
+| GET | `/health` | 🔓 | `{ status: "ok" }` |
+| GET | `/ready` | 🔓 | BD accesible (`503` si no) |
+| GET | `/openapi/v1.json` | 🔓 | OpenAPI (no producción) |
+| GET | `/scalar/v1` | 🔓 | UI Scalar |
 
 ---
 
@@ -36,8 +39,15 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/families` | 🔓 | Árbol familias → categorías → subcategorías activas |
-| GET | `/products?page=1&pageSize=20&q=` | 🔓 | Listado paginado de productos activos |
+| GET | `/home?take=12` | 🔓 | Portadas + últimos productos |
+| GET | `/covers` | 🔓 | Portadas activas |
+| GET | `/products/latest?take=12` | 🔓 | Últimos productos |
+| GET | `/families` | 🔓 | Árbol familias → categorías → subcategorías |
+| GET | `/families/{slug}` | 🔓 | Familia + categorías |
+| GET | `/categories/{slug}` | 🔓 | Categoría + subcategorías |
+| GET | `/subcategories/{slug}` | 🔓 | Subcategoría |
+| GET | `/products` | 🔓 | Filtros: `familyId`, `categoryId`, `subCategoryId`, `q`, `sort` |
+| GET | `/search?q=` | 🔓 | Alias de listado con búsqueda |
 | GET | `/products/{slug}` | 🔓 | Detalle con variantes, precios e imágenes |
 
 ---
@@ -48,12 +58,27 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 |--------|------|------|---------|-------------|
 | GET | `/` | opcional | `X-Guest-Token` (invitado) o JWT | Ver carrito |
 | POST | `/items` | opcional | idem | Agregar variante (`variantId`, `quantity`) |
-| PUT | `/items/{itemId}` | opcional | idem | Actualizar cantidad |
+| PUT / PATCH | `/items/{itemId}` | opcional | idem | Actualizar cantidad |
 | DELETE | `/items/{itemId}` | opcional | idem | Quitar línea |
+| DELETE | `/` | opcional | idem | Vaciar carrito |
+| POST | `/merge` | 🔐 | Fusionar carrito invitado (`guestToken`) |
 
 **Invitado:** enviar header `X-Guest-Token` (GUID). Si no existe, la API crea uno y lo devuelve en la respuesta del carrito.
 
 **Usuario:** JWT de cliente; el carrito se asocia a `userId`.
+
+---
+
+## Direcciones — `/api/v1/addresses`
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/` | 🔐 | Listado del usuario |
+| GET | `/{id}` | 🔐 | Detalle |
+| POST | `/` | 🔐 | Crear |
+| PUT | `/{id}` | 🔐 | Actualizar |
+| DELETE | `/{id}` | 🔐 | Eliminar |
+| PATCH | `/{id}/default` | 🔐 | Marcar predeterminada |
 
 ---
 
@@ -62,8 +87,20 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
 | POST | `/` | 🔐 | Convierte carrito en pedido + reserva stock |
+| POST | `/{orderId}/pay` | 🔐 | Pago mock (alias de orders pay) |
 
-### Body
+### Body checkout
+
+Usar **`addressId`** (dirección guardada) **o** datos inline:
+
+```json
+{
+  "addressId": "00000000-0000-0000-0000-000000000000",
+  "shippingCost": 99.00
+}
+```
+
+O sin `addressId`:
 
 ```json
 {
@@ -89,6 +126,7 @@ Respuesta: `orderId`, `orderNumber`, `total`, `status` (`PendingPayment`).
 | GET | `/` | 🔐 | Historial de pedidos del usuario |
 | GET | `/{orderId}` | 🔐 | Detalle de un pedido propio |
 | POST | `/{orderId}/pay` | 🔐 | Pago mock (confirma stock, estado → `Paid`) |
+| POST | `/{orderId}/retry-payment` | 🔐 | Reintento si `PaymentFailed` / `PendingPayment` |
 
 ---
 

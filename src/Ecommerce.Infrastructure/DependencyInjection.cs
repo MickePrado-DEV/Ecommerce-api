@@ -49,6 +49,10 @@ public static class DependencyInjection
         services.AddScoped<IShipmentRepository, ShipmentRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPdfTicketGenerator, PdfTicketGenerator>();
+        services.AddScoped<ICoverRepository, CoverRepository>();
+        services.AddScoped<IAddressRepository, AddressRepository>();
+        services.AddScoped<IDashboardRepository, DashboardRepository>();
+        services.AddScoped<IProductOptionRepository, ProductOptionRepository>();
 
         return services;
     }

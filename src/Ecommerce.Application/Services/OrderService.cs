@@ -25,8 +25,8 @@ public class OrderService(IOrderRepository orders, IInventoryRepository inventor
         var order = await orders.GetByIdForUserAsync(orderId, userId, ct)
             ?? throw new NotFoundException("Order", orderId);
 
-        if (order.Status != OrderStatus.PendingPayment)
-            throw new InvalidOperationException("La orden no está pendiente de pago");
+        if (order.Status is not OrderStatus.PendingPayment and not OrderStatus.PaymentFailed)
+            throw new InvalidOperationException("La orden no admite pago");
 
         await uow.BeginTransactionAsync(ct);
         try

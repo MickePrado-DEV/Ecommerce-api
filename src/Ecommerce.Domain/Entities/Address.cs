@@ -12,5 +12,6 @@ public class Address : BaseEntity
     public string PostalCode { get; set; } = null!;
     public string Country { get; set; } = null!;
     public string Phone { get; set; } = null!;
+    public bool IsDefault { get; set; }
     public User User { get; set; } = null!;
 }

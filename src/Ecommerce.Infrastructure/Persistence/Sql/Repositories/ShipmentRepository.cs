@@ -1,5 +1,6 @@
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Domain.Entities;
+using Ecommerce.Domain.Emums;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql.Repositories;
 
@@ -33,5 +34,26 @@ public class ShipmentRepository(EcommerceDbContext db) : IShipmentRepository
         else db.Drivers.Update(driver);
         await db.SaveChangesAsync(ct);
         return driver;
+    }
+
+    public async Task DeleteDriverAsync(Guid id, CancellationToken ct = default)
+    {
+        var driver = await db.Drivers.FindAsync([id], ct);
+        if (driver is not null) db.Drivers.Remove(driver);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public Task<List<Shipment>> ListAsync(int page, int pageSize, CancellationToken ct = default) =>
+        db.Shipments.AsNoTracking().Include(s => s.Driver).Include(s => s.Order)
+            .OrderByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+
+    public async Task UpdateStatusAsync(Guid shipmentId, ShipmentStatus status, CancellationToken ct = default)
+    {
+        var shipment = await db.Shipments.FindAsync([shipmentId], ct)
+            ?? throw new InvalidOperationException("Envío no encontrado");
+        shipment.Status = status;
+        if (status == ShipmentStatus.InTransit) shipment.ShippedAt ??= DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
     }
 }

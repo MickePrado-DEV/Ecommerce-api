@@ -11,6 +11,7 @@ public class CheckoutService(
     ICartRepository carts,
     IOrderRepository orders,
     IInventoryRepository inventory,
+    IAddressRepository addresses,
     IUnitOfWork uow) : ICheckoutService
 {
     public async Task<CheckoutResultDto> CheckoutAsync(Guid userId, CheckoutRequest request, CancellationToken ct = default)
@@ -25,6 +26,38 @@ public class CheckoutService(
             return price * i.Quantity;
         });
 
+        OrderAddress orderAddress;
+        if (request.AddressId.HasValue)
+        {
+            var address = await addresses.GetAsync(request.AddressId.Value, userId, ct)
+                ?? throw new NotFoundException("Address", request.AddressId.Value);
+            orderAddress = new OrderAddress
+            {
+                FullName = address.Label,
+                Street = address.Street,
+                City = address.City,
+                State = address.State,
+                PostalCode = address.PostalCode,
+                Country = address.Country,
+                Phone = address.Phone
+            };
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.FullName))
+                throw new InvalidOperationException("Debe indicar addressId o los datos de envío");
+            orderAddress = new OrderAddress
+            {
+                FullName = request.FullName!,
+                Street = request.Street!,
+                City = request.City!,
+                State = request.State!,
+                PostalCode = request.PostalCode!,
+                Country = request.Country!,
+                Phone = request.Phone!
+            };
+        }
+
         var order = new Order
         {
             OrderNumber = orders.GenerateOrderNumber(),
@@ -33,16 +66,7 @@ public class CheckoutService(
             Subtotal = subtotal,
             ShippingCost = request.ShippingCost,
             Total = subtotal + request.ShippingCost,
-            Address = new OrderAddress
-            {
-                FullName = request.FullName,
-                Street = request.Street,
-                City = request.City,
-                State = request.State,
-                PostalCode = request.PostalCode,
-                Country = request.Country,
-                Phone = request.Phone
-            },
+            Address = orderAddress,
             Items = cart.Items.Select(i => new OrderItem
             {
                 VariantId = i.VariantId,

@@ -20,6 +20,10 @@ public static class DependencyInjection
         services.AddScoped<IAdminCatalogService, AdminCatalogService>();
         services.AddScoped<IAdminOrderService, AdminOrderService>();
         services.AddScoped<IAdminShipmentService, AdminShipmentService>();
+        services.AddScoped<IAddressService, AddressService>();
+        services.AddScoped<IAdminCoverService, AdminCoverService>();
+        services.AddScoped<IAdminDashboardService, AdminDashboardService>();
+        services.AddScoped<IAdminProductOptionService, AdminProductOptionService>();
         return services;
     }
 }

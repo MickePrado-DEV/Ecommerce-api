@@ -37,4 +37,43 @@ public class CartRepository(EcommerceDbContext db) : ICartRepository
         var items = await db.CartItems.Where(i => i.CartId == cartId).ToListAsync(ct);
         db.CartItems.RemoveRange(items);
     }
+
+    public async Task MergeGuestIntoUserAsync(Guid userId, Guid guestToken, CancellationToken ct = default)
+    {
+        var guestCart = await db.Carts.Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.GuestToken == guestToken && c.UserId == null, ct);
+        if (guestCart is null || guestCart.Items.Count == 0) return;
+
+        var userCart = await db.Carts.Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.UserId == userId, ct);
+
+        if (userCart is null)
+        {
+            guestCart.UserId = userId;
+            guestCart.GuestToken = null;
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        foreach (var item in guestCart.Items)
+        {
+            var existing = userCart.Items.FirstOrDefault(i => i.VariantId == item.VariantId);
+            if (existing is not null)
+                existing.Quantity += item.Quantity;
+            else
+                userCart.Items.Add(new CartItem { CartId = userCart.Id, VariantId = item.VariantId, Quantity = item.Quantity });
+        }
+
+        db.Carts.Remove(guestCart);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteCartAsync(Guid cartId, CancellationToken ct = default)
+    {
+        var cart = await db.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == cartId, ct);
+        if (cart is null) return;
+        db.CartItems.RemoveRange(cart.Items);
+        db.Carts.Remove(cart);
+        await db.SaveChangesAsync(ct);
+    }
 }

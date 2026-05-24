@@ -53,6 +53,21 @@ public class CartService(ICartRepository carts, IUnitOfWork uow) : ICartService
         return Map(cart);
     }
 
+    public async Task<CartDto> MergeAsync(Guid userId, MergeCartRequest request, CancellationToken ct = default)
+    {
+        await carts.MergeGuestIntoUserAsync(userId, request.GuestToken, ct);
+        var cart = await carts.GetOrCreateAsync(userId, null, ct);
+        cart = (await carts.GetWithItemsAsync(cart.Id, ct))!;
+        return Map(cart);
+    }
+
+    public async Task ClearAsync(Guid? userId, Guid? guestToken, CancellationToken ct = default)
+    {
+        var cart = await carts.GetOrCreateAsync(userId, guestToken, ct);
+        await carts.ClearAsync(cart.Id, ct);
+        await uow.SaveChangesAsync(ct);
+    }
+
     private static CartDto Map(Cart cart)
     {
         var items = cart.Items.Select(i =>

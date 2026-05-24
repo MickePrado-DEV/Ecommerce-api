@@ -17,6 +17,13 @@ public static class CheckoutEndpoints
             return Results.Ok(await svc.CheckoutAsync(userId.Value, req, ct));
         }).WithValidation<CheckoutRequest>();
 
+        checkout.MapPost("/{orderId:guid}/pay", async (Guid orderId, IOrderService svc, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return Results.Ok(await svc.PayMockAsync(userId.Value, orderId, ct));
+        });
+
         return group;
     }
 }

@@ -30,6 +30,13 @@ public static class OrderEndpoints
             return Results.Ok(await svc.PayMockAsync(userId.Value, orderId, ct));
         });
 
+        orders.MapPost("/{orderId:guid}/retry-payment", async (Guid orderId, IOrderService svc, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return Results.Ok(await svc.PayMockAsync(userId.Value, orderId, ct));
+        });
+
         return group;
     }
 }

@@ -6,7 +6,7 @@ using Ecommerce.Domain.Exceptions;
 
 namespace Ecommerce.Application.Services;
 
-public class AdminOrderService(IOrderRepository orders) : IAdminOrderService
+public class AdminOrderService(IOrderRepository orders, IShipmentRepository shipments, IPdfTicketGenerator pdf) : IAdminOrderService
 {
     public async Task<PagedOrdersAdminDto> ListAsync(int page, int pageSize, OrderStatus? status, CancellationToken ct = default)
     {
@@ -29,6 +29,13 @@ public class AdminOrderService(IOrderRepository orders) : IAdminOrderService
         if (order.Status != OrderStatus.Paid)
             throw new InvalidOperationException("La orden debe estar pagada");
         await orders.UpdateStatusAsync(orderId, OrderStatus.ReadyToDispatch, ct);
+    }
+
+    public async Task<byte[]> GenerateTicketPdfByOrderAsync(Guid orderId, CancellationToken ct = default)
+    {
+        var shipment = await shipments.GetByOrderIdAsync(orderId, ct)
+            ?? throw new NotFoundException("Shipment", orderId);
+        return pdf.GenerateDispatchTicket(shipment);
     }
 }
 

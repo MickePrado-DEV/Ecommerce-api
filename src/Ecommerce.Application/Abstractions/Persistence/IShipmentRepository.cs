@@ -1,4 +1,5 @@
 using Ecommerce.Domain.Entities;
+using Ecommerce.Domain.Emums;
 
 namespace Ecommerce.Application.Abstractions.Persistence;
 
@@ -9,4 +10,7 @@ public interface IShipmentRepository
     Task<Shipment> CreateAsync(Shipment shipment, DispatchTicket ticket, CancellationToken ct = default);
     Task<List<Driver>> ListDriversAsync(CancellationToken ct = default);
     Task<Driver> SaveDriverAsync(Driver driver, CancellationToken ct = default);
+    Task DeleteDriverAsync(Guid id, CancellationToken ct = default);
+    Task<List<Shipment>> ListAsync(int page, int pageSize, CancellationToken ct = default);
+    Task UpdateStatusAsync(Guid shipmentId, ShipmentStatus status, CancellationToken ct = default);
 }
