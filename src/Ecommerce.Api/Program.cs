@@ -1,61 +1,100 @@
 using Ecommerce.Api.Endpoints;
+using Ecommerce.Api.Middleware;
 using Ecommerce.Application;
-using Ecommerce.Application.Authorization;
 using Ecommerce.Infrastructure;
+using Ecommerce.Infrastructure.Persistence.Sql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using Serilog;
 using System.Text;
 
-var builder = WebApplication.CreateBuilder(args);
+try
+{
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseSerilog((ctx, cfg) => cfg
+        .ReadFrom.Configuration(ctx.Configuration)
+        .WriteTo.Console()
+        .WriteTo.File(
+            $"logs/ecommerce-{ctx.HostingEnvironment.EnvironmentName.ToLowerInvariant()}-.log",
+            rollingInterval: RollingInterval.Day,
+            shared: true));
 
-builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddOpenApi();
+    builder.Services.AddApplication();
+    builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddOpenApi();
 
-builder.Services.AddCors(o => o.AddPolicy("Web", p =>
-    p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()!)
-     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
+    builder.Services.AddCors(o => o.AddPolicy("Web", p =>
+        p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()!)
+         .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
-var jwt = builder.Configuration.GetSection("Jwt");
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o =>
-    {
-        o.TokenValidationParameters = new TokenValidationParameters
+    var jwt = builder.Configuration.GetSection("Jwt");
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(o =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwt["Issuer"],
-            ValidAudience = jwt["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Secret"]!))
-        };
+            o.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwt["Issuer"],
+                ValidAudience = jwt["Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Secret"]!))
+            };
+        });
+
+    builder.Services.AddAuthorization(o =>
+    {
+        foreach (var perm in Ecommerce.Application.Authorization.AdminPermissions.All)
+            o.AddPolicy(perm, p => p.RequireClaim("permission", perm));
     });
 
-builder.Services.AddAuthorization(o =>
-{
-    foreach (var perm in AdminPermissions.All)
-        o.AddPolicy(perm, p => p.RequireClaim("permission", perm));
-});
+    var app = builder.Build();
 
-var app = builder.Build();
+    await DatabaseBootstrap.InitializeAsync(app.Services);
 
-if (app.Environment.IsDevelopment())
+    app.UseMiddleware<ExceptionMiddleware>();
+
+    if (!app.Environment.IsProduction())
+    {
+        app.MapOpenApi();
+        app.MapScalarApiReference(options =>
+        {
+            options.WithTitle("Ecommerce API");
+            options.WithOpenApiRoutePattern("/openapi/{documentName}.json");
+        });
+    }
+
+    app.UseSerilogRequestLogging();
+    app.UseCors("Web");
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapGet("/health", async (EcommerceDbContext db) =>
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        return Results.Ok(new { status = canConnect ? "ok" : "degraded", database = canConnect ? "connected" : "disconnected" });
+    });
+
+    var api = app.MapGroup("/api/v1");
+    api.MapAuthEndpoints();
+    api.MapCatalogEndpoints();
+    api.MapCartEndpoints();
+    api.MapCheckoutEndpoints();
+    api.MapOrderEndpoints();
+    api.MapAdminEndpoints();
+
+    await app.RunAsync();
+}
+catch (Exception ex)
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference(options => options.WithTitle("Ecommerce API"));
+    Serilog.Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    await Serilog.Log.CloseAndFlushAsync();
 }
 
-app.UseCors("Web");
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-
-var api = app.MapGroup("/api/v1");
-api.MapAuthEndpoints();
-api.MapCatalogEndpoints();
-api.MapCartEndpoints();
-
-app.Run();
+public partial class Program;

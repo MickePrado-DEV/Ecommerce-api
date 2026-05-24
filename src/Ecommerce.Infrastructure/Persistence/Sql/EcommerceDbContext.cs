@@ -1,32 +1,128 @@
-﻿using Ecommerce.Domain.Entities;
-namespace Ecommerce.Infrastructure.Persistence.Sql
+﻿using Ecommerce.Domain.Common;
+using Ecommerce.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
+namespace Ecommerce.Infrastructure.Persistence.Sql;
+
+public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : DbContext(options)
 {
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Family> Families => Set<Family>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Subcategory> Subcategories => Set<Subcategory>();
+    public DbSet<Cover> Covers => Set<Cover>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<ProductOption> ProductOptions => Set<ProductOption>();
+    public DbSet<OptionValue> OptionValues => Set<OptionValue>();
+    public DbSet<Variant> Variants => Set<Variant>();
+    public DbSet<Inventory> Inventories => Set<Inventory>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<OrderAddress> OrderAddresses => Set<OrderAddress>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<StockReservation> StockReservations => Set<StockReservation>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<Driver> Drivers => Set<Driver>();
+    public DbSet<DispatchTicket> DispatchTickets => Set<DispatchTicket>();
+    public DbSet<Address> Addresses => Set<Address>();
 
-    public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : DbContext(options)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        public DbSet<User> Users => Set<User>();
-        public DbSet<Product> Products => Set<Product>();
-        public DbSet<Variant> Variants => Set<Variant>();
-        public DbSet<Inventory> Inventories => Set<Inventory>();
-        public DbSet<Cart> Carts => Set<Cart>();
-        public DbSet<CartItem> CartItems => Set<CartItem>();
-        public DbSet<Order> Orders => Set<Order>();
+        modelBuilder.Entity<User>().ToTable("users");
+        modelBuilder.Entity<Role>().ToTable("roles");
+        modelBuilder.Entity<Permission>().ToTable("permissions");
+        modelBuilder.Entity<UserRole>().ToTable("user_roles").HasKey(x => new { x.UserId, x.RoleId });
+        modelBuilder.Entity<RolePermission>().ToTable("role_permissions").HasKey(x => new { x.RoleId, x.PermissionId });
+        modelBuilder.Entity<RefreshToken>().ToTable("refresh_tokens");
+        modelBuilder.Entity<Family>().ToTable("families");
+        modelBuilder.Entity<Category>().ToTable("categories");
+        modelBuilder.Entity<Subcategory>().ToTable("subcategories");
+        modelBuilder.Entity<Cover>().ToTable("covers");
+        modelBuilder.Entity<Product>().ToTable("products");
+        modelBuilder.Entity<ProductImage>().ToTable("product_images");
+        modelBuilder.Entity<ProductOption>().ToTable("product_options");
+        modelBuilder.Entity<OptionValue>().ToTable("option_values");
+        modelBuilder.Entity<Variant>().ToTable("variants");
+        modelBuilder.Entity<Inventory>().ToTable("inventory").HasKey(i => i.VariantId);
+        modelBuilder.Entity<Cart>().ToTable("carts");
+        modelBuilder.Entity<CartItem>().ToTable("cart_items");
+        modelBuilder.Entity<Order>().ToTable("orders");
+        modelBuilder.Entity<OrderItem>().ToTable("order_items");
+        modelBuilder.Entity<OrderAddress>().ToTable("order_addresses");
+        modelBuilder.Entity<Payment>().ToTable("payments");
+        modelBuilder.Entity<StockReservation>().ToTable("stock_reservations");
+        modelBuilder.Entity<StockMovement>().ToTable("stock_movements");
+        modelBuilder.Entity<Shipment>().ToTable("shipments");
+        modelBuilder.Entity<Driver>().ToTable("drivers");
+        modelBuilder.Entity<DispatchTicket>().ToTable("dispatch_tickets");
+        modelBuilder.Entity<Address>().ToTable("addresses");
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        ConfigureEnumConversions(modelBuilder);
+        ConfigureDecimals(modelBuilder);
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.Role).WithMany(r => r.UserRoles).HasForeignKey(ur => ur.RoleId);
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.User).WithMany(u => u.UserRoles).HasForeignKey(ur => ur.UserId);
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(rp => rp.Permission).WithMany(p => p.RolePermissions).HasForeignKey(rp => rp.PermissionId);
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(rp => rp.Role).WithMany(r => r.RolePermissions).HasForeignKey(rp => rp.RoleId);
+
+        modelBuilder.Entity<Order>()
+            .HasOne(o => o.Address).WithOne(a => a.Order).HasForeignKey<OrderAddress>(a => a.OrderId);
+        modelBuilder.Entity<Order>()
+            .HasOne(o => o.Payment).WithOne(p => p.Order).HasForeignKey<Payment>(p => p.OrderId);
+        modelBuilder.Entity<Order>()
+            .HasOne(o => o.Shipment).WithOne(s => s.Order).HasForeignKey<Shipment>(s => s.OrderId);
+        modelBuilder.Entity<Shipment>()
+            .HasOne(s => s.Ticket).WithOne(t => t.Shipment).HasForeignKey<DispatchTicket>(t => t.ShipmentId);
+
+        modelBuilder.Entity<Product>().HasIndex(p => p.Slug).IsUnique();
+        modelBuilder.Entity<Family>().HasIndex(f => f.Slug).IsUnique();
+    }
+
+    private static void ConfigureEnumConversions(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Order>().Property(o => o.Status).HasConversion<string>().HasMaxLength(30);
+        modelBuilder.Entity<Payment>().Property(p => p.Status).HasConversion<string>().HasMaxLength(30);
+        modelBuilder.Entity<Shipment>().Property(s => s.Status).HasConversion<string>().HasMaxLength(30);
+        modelBuilder.Entity<StockMovement>().Property(s => s.Type).HasConversion<string>().HasMaxLength(30);
+    }
+
+    private static void ConfigureDecimals(ModelBuilder modelBuilder)
+    {
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
-            modelBuilder.Entity<User>().ToTable("users");
-            modelBuilder.Entity<Product>().ToTable("products");
-            modelBuilder.Entity<Variant>().ToTable("variants");
-            modelBuilder.Entity<Inventory>().ToTable("inventory").HasKey(i => i.VariantId);
-            modelBuilder.Entity<Cart>().ToTable("carts");
-            modelBuilder.Entity<CartItem>().ToTable("cart_items");
-            modelBuilder.Entity<Order>().ToTable("orders");
-
-            modelBuilder.Entity<Order>()
-                .Property(o => o.Status)
-                .HasConversion<string>()
-                .HasMaxLength(30);
+            foreach (var prop in entity.GetProperties().Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
+                prop.SetColumnType("decimal(18,2)");
         }
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.Id = entry.Entity.Id == Guid.Empty ? Guid.NewGuid() : entry.Entity.Id;
+                entry.Entity.CreatedAt = now;
+                entry.Entity.UpdatedAt = now;
+            }
+            else if (entry.State == EntityState.Modified)
+                entry.Entity.UpdatedAt = now;
+        }
+        return base.SaveChangesAsync(cancellationToken);
     }
 }

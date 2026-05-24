@@ -1,8 +1,11 @@
 ﻿using Ecommerce.Domain.Common;
 
-namespace Ecommerce.Domain.Entities
+namespace Ecommerce.Domain.Entities;
+
+public class OptionValue : BaseEntity
 {
-    public class OptionValue : BaseEntity
-    {
-    }
+    public Guid ProductOptionId { get; set; }
+    public string Value { get; set; } = null!;
+    public int SortOrder { get; set; }
+    public ProductOption ProductOption { get; set; } = null!;
 }

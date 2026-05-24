@@ -1,22 +1,35 @@
 {
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "http": {
+    "SqlServer": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
+      "launchUrl": "scalar/v1",
       "applicationUrl": "http://localhost:5088",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "SqlServer"
       }
     },
-    "https": {
+    "Sqlite": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
-      "applicationUrl": "https://localhost:7246;http://localhost:5088",
+      "launchUrl": "scalar/v1",
+      "applicationUrl": "http://localhost:5089",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Sqlite"
+      }
+    },
+    "SqlServer (LocalDB)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "scalar/v1",
+      "applicationUrl": "http://localhost:5088",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "SqlServer",
+        "ConnectionStrings__Default": "Server=(localdb)\\mssqllocaldb;Database=ecommerce;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
       }
     }
   }

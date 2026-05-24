@@ -13,6 +13,10 @@ namespace Ecommerce.Domain.Entities
 
         public ICollection<UserRole> UserRoles { get; set; } = [];
         public ICollection<Address> Addresses { get; set; } = [];
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+
+        public IReadOnlyList<string> Roles =>
+            UserRoles.Select(ur => ur.Role.Code).ToList();
     }
 }
 
