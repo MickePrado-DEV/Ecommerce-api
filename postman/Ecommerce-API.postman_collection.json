@@ -1,0 +1,1433 @@
+{
+  "info": {
+    "_postman_id": "ecommerce-api-collection",
+    "name": "Ecommerce API",
+    "description": "Colección completa para probar el backend Ecommerce.\n\n## Autenticación automática\n1. Ejecuta **Login Admin** o **Login Cliente** (carpeta 00 - Setup o 01 - Auth)\n2. El script guarda `accessToken`, `refreshToken` y datos de usuario en la colección y el entorno\n3. Todas las demás peticiones usan **Bearer {{accessToken}}** heredado de la colección\n\n## Usuarios seed\n- Admin: `admin@ecommerce.local` / `Admin123!`\n- Cliente: `cliente@ecommerce.local` / `Cliente123!`\n\n## Bodies de ejemplo\nCada POST/PUT trae JSON listo con valores seed o variables (`{{variantId}}`, etc.). Abre la pestaña **Body** y solo modifica los campos que quieras probar (nombre, slug, **description** del producto, dirección, etc.). La pestaña **Description** de cada request documenta cada parámetro.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.request.auth && pm.request.auth.type === 'noauth') return;",
+          "const token = pm.collectionVariables.get('accessToken') || pm.environment.get('accessToken');",
+          "if (token) pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + token });"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5088"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "isLoggedIn",
+      "value": "false"
+    },
+    {
+      "key": "sessionRole",
+      "value": ""
+    },
+    {
+      "key": "userEmail",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "guestToken",
+      "value": ""
+    },
+    {
+      "key": "variantId",
+      "value": ""
+    },
+    {
+      "key": "cartItemId",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "productSlug",
+      "value": "audifonos-pro-x"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Setup",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Comprueba que la API responde y la BD está conectada. Sin body."
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function saveAuthSession(role) {",
+                  "  if (pm.response.code !== 200) return;",
+                  "  const j = pm.response.json();",
+                  "  const pairs = { accessToken: j.accessToken, refreshToken: j.refreshToken, userEmail: j.user?.email || '', userId: String(j.user?.id || ''), sessionRole: role, isLoggedIn: 'true', adminToken: j.accessToken };",
+                  "  Object.entries(pairs).forEach(([k,v]) => { pm.collectionVariables.set(k,v); try { pm.environment.set(k,v); } catch(e) {} });",
+                  "  console.log('Sesión admin guardada:', j.user?.email);",
+                  "}",
+                  "saveAuthSession('admin');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@ecommerce.local\",\n  \"password\": \"Admin123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "**Body (listo para enviar)**\n- `email`, `password`: credenciales seed admin.\n\nTras 200, Tests guardan sesión (`accessToken`). Solo cambia email/password si pruebas otro usuario."
+          }
+        },
+        {
+          "name": "Login Cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function saveAuthSession(role) {",
+                  "  if (pm.response.code !== 200) return;",
+                  "  const j = pm.response.json();",
+                  "  const pairs = { accessToken: j.accessToken, refreshToken: j.refreshToken, userEmail: j.user?.email || '', userId: String(j.user?.id || ''), sessionRole: role, isLoggedIn: 'true', customerToken: j.accessToken };",
+                  "  Object.entries(pairs).forEach(([k,v]) => { pm.collectionVariables.set(k,v); try { pm.environment.set(k,v); } catch(e) {} });",
+                  "  console.log('Sesión cliente guardada:', j.user?.email);",
+                  "}",
+                  "saveAuthSession('customer');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@ecommerce.local\",\n  \"password\": \"Cliente123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "**Body (listo para enviar)**\n- `email`, `password`: credenciales seed cliente.\n\nTras 200, Tests guardan sesión. Ejecuta antes de carrito/checkout."
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  const pairs = { accessToken: j.accessToken, refreshToken: j.refreshToken, userEmail: j.user?.email || '', userId: String(j.user?.id || ''), sessionRole: 'customer', isLoggedIn: 'true', customerToken: j.accessToken };",
+                  "  Object.entries(pairs).forEach(([k,v]) => { pm.collectionVariables.set(k,v); try { pm.environment.set(k,v); } catch(e) {} });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nuevo@ecommerce.local\",\n  \"password\": \"Cliente123!\",\n  \"firstName\": \"Nuevo\",\n  \"lastName\": \"Usuario\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "description": "**Body ejemplo**\n- `email`: único (cambia si ya existe)\n- `password`: mín. 8 caracteres\n- `firstName`, `lastName`\n\nGuarda tokens en sesión al registrar."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', j.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', j.refreshToken);",
+                  "  try { pm.environment.set('accessToken', j.accessToken); pm.environment.set('refreshToken', j.refreshToken); } catch(e) {}",
+                  "  console.log('Tokens renovados');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "description": "**Body**\n- `refreshToken`: se rellena solo con `{{refreshToken}}` tras login.\n\nRenueva `accessToken` sin volver a loguear."
+          }
+        },
+        {
+          "name": "Me (usa sesión guardada)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "description": "Devuelve el usuario del JWT actual. Requiere login previo."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "['accessToken','refreshToken','adminToken','customerToken','userEmail','userId','sessionRole'].forEach(k => { pm.collectionVariables.unset(k); try { pm.environment.unset(k); } catch(e) {} });",
+                  "pm.collectionVariables.set('isLoggedIn','false');",
+                  "console.log('Sesión cerrada');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Invalida refresh token y limpia variables de sesión en Tests."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Catálogo (público)",
+      "item": [
+        {
+          "name": "Listar familias",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/catalog/families",
+            "description": "Catálogo público. Sin body."
+          }
+        },
+        {
+          "name": "Listar productos",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalog/products?page=1&pageSize=20&q=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "catalog",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                },
+                {
+                  "key": "q",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Query: `page`, `pageSize`, `q` (búsqueda opcional)."
+          }
+        },
+        {
+          "name": "Detalle producto por slug",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.variants && j.variants.length > 0) {",
+                  "    pm.environment.set('variantId', j.variants[0].id);",
+                  "    console.log('variantId:', j.variants[0].id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/catalog/products/{{productSlug}}",
+            "description": "Usa `{{productSlug}}`. Tests guardan `variantId` del primer variant."
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Carrito",
+      "item": [
+        {
+          "name": "Guest - Obtener carrito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.guestToken) pm.environment.set('guestToken', j.guestToken);",
+                  "  if (j.items && j.items.length) pm.environment.set('cartItemId', j.items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{guestToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/",
+            "description": "Header `X-Guest-Token`: opcional; si vacío crea carrito invitado. Tests guardan `guestToken`."
+          }
+        },
+        {
+          "name": "Guest - Agregar item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.guestToken) pm.environment.set('guestToken', j.guestToken);",
+                  "  if (j.items && j.items.length) pm.environment.set('cartItemId', j.items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Guest-Token",
+                "value": "{{guestToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/cart/items",
+            "description": "**Body**\n- `variantId`: `{{variantId}}` (ejecuta antes Detalle producto)\n- `quantity`: cantidad\n\nHeader `X-Guest-Token` opcional."
+          }
+        },
+        {
+          "name": "Guest - Actualizar cantidad",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Guest-Token",
+                "value": "{{guestToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/cart/items/{{cartItemId}}",
+            "description": "**Body**: `{ \"quantity\": 2 }`. URL usa `{{cartItemId}}`."
+          }
+        },
+        {
+          "name": "Guest - Eliminar item",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{guestToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/items/{{cartItemId}}",
+            "description": "DELETE con `{{cartItemId}}` y header guest."
+          }
+        },
+        {
+          "name": "Usuario - Agregar item (con JWT cliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 && pm.response.json().items?.length) {",
+                  "  pm.environment.set('cartItemId', pm.response.json().items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/cart/items",
+            "description": "**Body**: `variantId`, `quantity`. Requiere **Login Cliente**."
+          }
+        },
+        {
+          "name": "Usuario - Ver carrito",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/cart/",
+            "description": "Carrito del usuario autenticado (sin guest token)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Checkout y Pedidos (cliente)",
+      "description": "Requiere **Login Cliente** previo (sesión en accessToken).",
+      "item": [
+        {
+          "name": "Checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.environment.set('orderId', j.orderId);",
+                  "  console.log('orderId:', j.orderId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Cliente Demo\",\n  \"street\": \"Av. Reforma 123\",\n  \"city\": \"Ciudad de México\",\n  \"state\": \"CDMX\",\n  \"postalCode\": \"06600\",\n  \"country\": \"MX\",\n  \"phone\": \"5551234567\",\n  \"shippingCost\": 99.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/checkout",
+            "description": "**Body – dirección de envío**\n- `fullName`, `street`, `city`, `state`, `postalCode`, `country`, `phone`\n- `shippingCost`: decimal\n\nSolo cambia textos/dirección si quieres otro escenario. Tests guardan `orderId`."
+          }
+        },
+        {
+          "name": "Pago mock",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/pay",
+            "description": "Simula pago del pedido `{{orderId}}`. Sin body. Requiere checkout previo."
+          }
+        },
+        {
+          "name": "Mis pedidos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders",
+            "description": "Lista pedidos del cliente autenticado."
+          }
+        },
+        {
+          "name": "Detalle pedido",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+            "description": "GET con `{{orderId}}`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Admin - General",
+      "description": "Requiere **Login Admin** previo. Para el 403, ejecuta antes **Login Cliente**.",
+      "item": [
+        {
+          "name": "Dashboard (requiere permiso)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/dashboard",
+            "description": "Requiere **Login Admin** y permiso dashboard."
+          }
+        },
+        {
+          "name": "Dashboard sin permiso (tras Login Cliente → 403)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/dashboard",
+            "description": "Ejecuta **Login Cliente** antes. Debe responder 403."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Admin - Catálogo CRUD",
+      "item": [
+        {
+          "name": "Listar familias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const list = pm.response.json();",
+                  "  if (Array.isArray(list) && list.length) pm.environment.set('familyId', list[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/catalog/families",
+            "description": "Admin: lista familias. Tests guardan `familyId`."
+          }
+        },
+        {
+          "name": "Crear familia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('familyId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hogar\",\n  \"slug\": \"hogar\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/catalog/families",
+            "description": "**Body**\n- `name`, `slug`, `sortOrder`, `isActive`\n\nSolo cambia nombre/slug para otro registro."
+          }
+        },
+        {
+          "name": "Actualizar familia",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hogar Actualizado\",\n  \"slug\": \"hogar\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/catalog/families/{{familyId}}",
+            "description": "**Body**: mismos campos que crear. URL `{{familyId}}`."
+          }
+        },
+        {
+          "name": "Crear categoría",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('categoryId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"familyId\": \"{{familyId}}\",\n  \"name\": \"Cocina\",\n  \"slug\": \"cocina\",\n  \"sortOrder\": 1,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/catalog/categories",
+            "description": "**Body**\n- `familyId`: `{{familyId}}`\n- `name`, `slug`, `sortOrder`, `isActive`"
+          }
+        },
+        {
+          "name": "Crear subcategoría",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('subcategoryId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"name\": \"Sartenes\",\n  \"slug\": \"sartenes\",\n  \"sortOrder\": 1,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/catalog/subcategories",
+            "description": "**Body**\n- `categoryId`: `{{categoryId}}`\n- `name`, `slug`, `sortOrder`, `isActive`"
+          }
+        },
+        {
+          "name": "Listar productos (admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/catalog/products?page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "catalog",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Query `page`, `pageSize`."
+          }
+        },
+        {
+          "name": "Crear producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.environment.set('productId', pm.response.json().id);",
+                  "  pm.environment.set('productSlug', pm.response.json().slug);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategoryId\": \"{{subcategoryId}}\",\n  \"name\": \"Sartén Premium\",\n  \"slug\": \"sarten-premium\",\n  \"description\": \"Sartén antiadherente\",\n  \"basePrice\": 49.99,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/catalog/products",
+            "description": "**Body**\n- `subcategoryId`, `name`, `slug`\n- `description`: texto del producto (cámbialo aquí)\n- `basePrice`, `isActive`"
+          }
+        },
+        {
+          "name": "Crear variante",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('variantId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"sku\": \"SART-001\",\n  \"price\": 49.99,\n  \"isActive\": true,\n  \"initialStock\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/catalog/variants",
+            "description": "**Body**\n- `productId`, `sku`, `price`, `isActive`, `initialStock`"
+          }
+        },
+        {
+          "name": "Eliminar variante",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/catalog/variants/{{variantId}}",
+            "description": "DELETE `{{variantId}}`."
+          }
+        },
+        {
+          "name": "Eliminar producto",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/catalog/products/{{productId}}",
+            "description": "DELETE `{{productId}}`."
+          }
+        },
+        {
+          "name": "Eliminar subcategoría",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/catalog/subcategories/{{subcategoryId}}",
+            "description": "DELETE `{{subcategoryId}}`."
+          }
+        },
+        {
+          "name": "Eliminar categoría",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/catalog/categories/{{categoryId}}",
+            "description": "DELETE `{{categoryId}}`."
+          }
+        },
+        {
+          "name": "Eliminar familia",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/catalog/families/{{familyId}}",
+            "description": "DELETE `{{familyId}}`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Admin - Inventario",
+      "item": [
+        {
+          "name": "Listar inventario",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/inventory",
+            "description": "Stock de todas las variantes."
+          }
+        },
+        {
+          "name": "Ajustar stock variante",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityOnHand\": 75\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/inventory/{{variantId}}",
+            "description": "**Body**: `{ \"quantityOnHand\": 75 }`. URL `{{variantId}}`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Admin - Pedidos y Envíos",
+      "item": [
+        {
+          "name": "Listar pedidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.items && j.items.length) pm.environment.set('orderId', j.items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=20&status=Paid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "Paid",
+                  "description": "PendingPayment|Paid|ReadyToDispatch|Dispatched|..."
+                }
+              ]
+            },
+            "description": "Query `page`, `pageSize`, `status` (ej. Paid). Tests guardan `orderId`."
+          }
+        },
+        {
+          "name": "Detalle pedido (admin)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}",
+            "description": "GET admin con `{{orderId}}`."
+          }
+        },
+        {
+          "name": "Marcar listo para despacho",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ready",
+            "description": "POST sin body. Pedido debe estar Paid."
+          }
+        },
+        {
+          "name": "Listar conductores",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const list = pm.response.json();",
+                  "  if (Array.isArray(list) && list.length) pm.environment.set('driverId', list[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/drivers",
+            "description": "Tests guardan `driverId` del primero."
+          }
+        },
+        {
+          "name": "Crear conductor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('driverId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pedro Entrega\",\n  \"phone\": \"+5215559999\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/drivers",
+            "description": "**Body**: `name`, `phone`, `isActive`."
+          }
+        },
+        {
+          "name": "Crear envío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('shipmentId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"trackingNumber\": \"TRACK-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/shipments",
+            "description": "**Body**\n- `orderId`, `driverId`\n- `trackingNumber` opcional"
+          }
+        },
+        {
+          "name": "Descargar ticket PDF",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/ticket.pdf",
+            "description": "Descarga PDF del envío `{{shipmentId}}`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Flujo Cliente (ejecutar en orden)",
+      "description": "1. Login Cliente → 2. Detalle producto → 3. Agregar al carrito → 4. Checkout → 5. Pagar → 6. Ver pedidos",
+      "item": [
+        {
+          "name": "1. Login Cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const pairs = { accessToken: j.accessToken, refreshToken: j.refreshToken, userEmail: j.user?.email || '', userId: String(j.user?.id || ''), sessionRole: 'customer', isLoggedIn: 'true', customerToken: j.accessToken };",
+                  "Object.entries(pairs).forEach(([k,v]) => { pm.collectionVariables.set(k,v); try { pm.environment.set(k,v); } catch(e) {} });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@ecommerce.local\",\n  \"password\": \"Cliente123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "Igual que Login Cliente en Setup. Guarda sesión."
+          }
+        },
+        {
+          "name": "2. Detalle producto (guarda variantId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 && pm.response.json().variants?.length)",
+                  "  pm.environment.set('variantId', pm.response.json().variants[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/catalog/products/{{productSlug}}",
+            "description": "Público. Rellena `variantId` en Tests."
+          }
+        },
+        {
+          "name": "3. Agregar al carrito",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/cart/items",
+            "description": "**Body**: variantId + quantity. Usa sesión cliente."
+          }
+        },
+        {
+          "name": "4. Checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('orderId', pm.response.json().orderId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Cliente Demo\",\n  \"street\": \"Av. Reforma 123\",\n  \"city\": \"Ciudad de México\",\n  \"state\": \"CDMX\",\n  \"postalCode\": \"06600\",\n  \"country\": \"MX\",\n  \"phone\": \"5551234567\",\n  \"shippingCost\": 99.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/checkout",
+            "description": "**Body**: dirección de envío (ejemplo listo). Cambia solo datos de envío si quieres."
+          }
+        },
+        {
+          "name": "5. Pago mock",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/pay",
+            "description": "Paga `{{orderId}}` del paso anterior."
+          }
+        },
+        {
+          "name": "6. Mis pedidos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders",
+            "description": "Lista pedidos del cliente."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Flujo Admin (ejecutar en orden)",
+      "description": "Requiere pedido pagado. 1. Login Admin → 2. Listo despacho → 3. Crear envío → 4. PDF",
+      "item": [
+        {
+          "name": "1. Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const pairs = { accessToken: j.accessToken, refreshToken: j.refreshToken, userEmail: j.user?.email || '', userId: String(j.user?.id || ''), sessionRole: 'admin', isLoggedIn: 'true', adminToken: j.accessToken };",
+                  "Object.entries(pairs).forEach(([k,v]) => { pm.collectionVariables.set(k,v); try { pm.environment.set(k,v); } catch(e) {} });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@ecommerce.local\",\n  \"password\": \"Admin123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "Guarda sesión admin."
+          }
+        },
+        {
+          "name": "2. Listar pedidos pagados",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 && pm.response.json().items?.length)",
+                  "  pm.environment.set('orderId', pm.response.json().items[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=10&status=Paid",
+            "description": "Filtra status=Paid. Guarda orderId."
+          }
+        },
+        {
+          "name": "3. Marcar listo para despacho",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ready",
+            "description": "Sin body."
+          }
+        },
+        {
+          "name": "4. Listar conductores",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 && pm.response.json().length)",
+                  "  pm.environment.set('driverId', pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/drivers",
+            "description": "Guarda driverId."
+          }
+        },
+        {
+          "name": "5. Crear envío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set('shipmentId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"trackingNumber\": \"TRACK-FLOW-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/shipments",
+            "description": "**Body**: orderId, driverId, trackingNumber."
+          }
+        },
+        {
+          "name": "6. Ticket PDF",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/ticket.pdf",
+            "description": "Descarga ticket del envío creado."
+          }
+        }
+      ]
+    }
+  ]
+}

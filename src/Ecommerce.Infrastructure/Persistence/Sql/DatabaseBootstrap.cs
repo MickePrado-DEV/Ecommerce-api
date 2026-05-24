@@ -20,12 +20,18 @@ public static class DatabaseBootstrap
         }
         catch (Exception ex)
         {
+            var cs = db.Database.GetConnectionString() ?? "(sin connection string)";
+            var server = cs.Contains("localdb", StringComparison.OrdinalIgnoreCase) ? "LocalDB" : "SQL Server";
             logger.LogCritical(ex,
-                "No se pudo conectar a la base de datos. " +
-                "SQL Server: crea la BD 'ecommerce', inicia el servicio y usa el perfil 'SqlServer'. " +
-                "SQLite: usa el perfil 'Sqlite'. " +
-                "Si el puerto está ocupado, detén otras instancias de la API o cambia applicationUrl en launchSettings.");
+                "No se pudo conectar a {Server}. ConnectionString: {ConnectionString}. " +
+                "LocalDB: perfil 'SqlServer' (por defecto). Instancia completa: perfil 'SqlServer (localhost)'. " +
+                "Sin SQL: perfil 'Sqlite'.",
+                server, MaskConnectionString(cs));
             throw;
         }
     }
+
+    private static string MaskConnectionString(string cs) =>
+        string.Join(';', cs.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Where(p => !p.TrimStart().StartsWith("Password", StringComparison.OrdinalIgnoreCase)));
 }
