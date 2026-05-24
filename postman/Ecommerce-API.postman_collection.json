@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "ecommerce-api-collection",
     "name": "Ecommerce API",
-    "description": "Colección completa para probar el backend Ecommerce.\n\n## Autenticación automática\n1. Ejecuta **Login Admin** o **Login Cliente** (carpeta 00 - Setup o 01 - Auth)\n2. El script guarda `accessToken`, `refreshToken` y datos de usuario en la colección y el entorno\n3. Todas las demás peticiones usan **Bearer {{accessToken}}** heredado de la colección\n\n## Usuarios seed\n- Admin: `admin@ecommerce.local` / `Admin123!`\n- Cliente: `cliente@ecommerce.local` / `Cliente123!`\n\n## Bodies de ejemplo\nCada POST/PUT trae JSON listo con valores seed o variables (`{{variantId}}`, etc.). Abre la pestaña **Body** y solo modifica los campos que quieras probar (nombre, slug, **description** del producto, dirección, etc.). La pestaña **Description** de cada request documenta cada parámetro.",
+    "description": "Colección Ecommerce API — paridad ampliada con spec Laravel.\n\n**Inicio:** 00 - Setup → Login Admin o Cliente (guarda accessToken).\n\n**Tienda:** catálogo home/covers/slugs, carrito guest+merge, direcciones, checkout (addressId o inline).\n\n**Admin:** dashboard/stats, covers, envíos, opciones por producto.\n\nSeed: admin@ecommerce.local / Admin123! · cliente@ecommerce.local / Cliente123! · slug audifonos-pro-x",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -84,6 +84,30 @@
     {
       "key": "productSlug",
       "value": "audifonos-pro-x"
+    },
+    {
+      "key": "addressId",
+      "value": ""
+    },
+    {
+      "key": "coverId",
+      "value": ""
+    },
+    {
+      "key": "optionId",
+      "value": ""
+    },
+    {
+      "key": "familySlug",
+      "value": "electronica"
+    },
+    {
+      "key": "categorySlug",
+      "value": "audio"
+    },
+    {
+      "key": "subcategorySlug",
+      "value": "audifonos"
     }
   ],
   "item": [
@@ -99,7 +123,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/health",
-            "description": "Comprueba que la API responde y la BD está conectada. Sin body."
+            "description": "{ status: \"ok\" }. Para BD usa **Ready (BD)**."
           }
         },
         {
@@ -188,6 +212,18 @@
             },
             "url": "{{baseUrl}}/api/v1/auth/login",
             "description": "**Body (listo para enviar)**\n- `email`, `password`: credenciales seed cliente.\n\nTras 200, Tests guardan sesión. Ejecuta antes de carrito/checkout."
+          }
+        },
+        {
+          "name": "Ready (BD)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ready",
+            "description": "Comprueba BD. 200 = ready, 503 = no disponible.",
+            "auth": {
+              "type": "noauth"
+            }
           }
         }
       ]
@@ -389,6 +425,102 @@
             "url": "{{baseUrl}}/api/v1/catalog/products/{{productSlug}}",
             "description": "Usa `{{productSlug}}`. Tests guardan `variantId` del primer variant."
           }
+        },
+        {
+          "name": "Home (covers + latest)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/home?take=12",
+            "description": "Portadas + últimos productos.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Listar portadas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/covers",
+            "description": "Portadas activas del home.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Últimos productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/products/latest?take=12",
+            "description": "Últimos N productos.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Familia por slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/families/{{familySlug}}",
+            "description": "Slug seed: electronica",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Categoría por slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/categories/{{categorySlug}}",
+            "description": "Slug seed: audio",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Subcategoría por slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/subcategories/{{subcategorySlug}}",
+            "description": "Slug seed: audifonos",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Buscar productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/search?q=audifono&page=1&pageSize=20",
+            "description": "Búsqueda por texto.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Listar productos (filtros)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/products?page=1&pageSize=20&sort=price:desc",
+            "description": "Query: familyId, categoryId, subCategoryId, q, sort (price:asc|desc|recent)",
+            "auth": {
+              "type": "noauth"
+            }
+          }
         }
       ]
     },
@@ -562,8 +694,182 @@
             "url": "{{baseUrl}}/api/v1/cart/",
             "description": "Carrito del usuario autenticado (sin guest token)."
           }
+        },
+        {
+          "name": "Guest - PATCH cantidad",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{guestToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/items/{{cartItemId}}",
+            "description": "Actualiza cantidad (invitado).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Guest - Vaciar carrito",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{guestToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/",
+            "description": "Vacía carrito invitado."
+          }
+        },
+        {
+          "name": "Usuario - Merge carrito guest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/merge",
+            "description": "Fusiona carrito guest tras login. JWT requerido.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guestToken\": \"{{guestToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         }
       ]
+    },
+    {
+      "name": "03b - Direcciones (cliente)",
+      "item": [
+        {
+          "name": "Listar direcciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const list = pm.response.json();",
+                  "  if (Array.isArray(list) && list.length) {",
+                  "    pm.collectionVariables.set('addressId', list[0].id);",
+                  "    try { pm.environment.set('addressId', list[0].id); } catch(e) {}",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/addresses",
+            "description": "Tests guardan addressId del primer ítem."
+          }
+        },
+        {
+          "name": "Crear dirección",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/addresses",
+            "description": "Crea dirección para checkout con addressId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Casa\",\n  \"street\": \"Av. Reforma 123\",\n  \"city\": \"Ciudad de México\",\n  \"state\": \"CDMX\",\n  \"postalCode\": \"06600\",\n  \"country\": \"MX\",\n  \"phone\": \"5551234567\",\n  \"isDefault\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('addressId', j.id);",
+                  "  try { pm.environment.set('addressId', j.id); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar dirección",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/addresses/{{addressId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Casa\",\n  \"street\": \"Av. Reforma 456\",\n  \"city\": \"Ciudad de México\",\n  \"state\": \"CDMX\",\n  \"postalCode\": \"06600\",\n  \"country\": \"MX\",\n  \"phone\": \"5551234567\",\n  \"isDefault\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Marcar default",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/addresses/{{addressId}}/default",
+            "description": "Marca predeterminada."
+          }
+        },
+        {
+          "name": "Eliminar dirección",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/addresses/{{addressId}}",
+            "description": ""
+          }
+        }
+      ],
+      "description": "Requiere **Login Cliente**."
     },
     {
       "name": "04 - Checkout y Pedidos (cliente)",
@@ -630,6 +936,62 @@
             "url": "{{baseUrl}}/api/v1/orders/{{orderId}}",
             "description": "GET con `{{orderId}}`."
           }
+        },
+        {
+          "name": "Checkout (con addressId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checkout",
+            "description": "Usa dirección guardada. Crear dirección antes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"shippingCost\": 99.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('orderId', j.orderId);",
+                  "  try { pm.environment.set('orderId', j.orderId); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pago mock (checkout)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/checkout/{{orderId}}/pay",
+            "description": "Alias POST /orders/{id}/pay"
+          }
+        },
+        {
+          "name": "Reintentar pago",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/retry-payment",
+            "description": "PaymentFailed o PendingPayment."
+          }
         }
       ]
     },
@@ -651,6 +1013,15 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/admin/dashboard",
             "description": "Ejecuta **Login Cliente** antes. Debe responder 403."
+          }
+        },
+        {
+          "name": "Dashboard stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/dashboard/stats",
+            "description": "Métricas: pedidos, productos, usuarios."
           }
         }
       ]
@@ -981,6 +1352,15 @@
             "url": "{{baseUrl}}/api/v1/admin/inventory/{{variantId}}",
             "description": "**Body**: `{ \"quantityOnHand\": 75 }`. URL `{{variantId}}`."
           }
+        },
+        {
+          "name": "Stock por variante",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/inventory/{{variantId}}",
+            "description": "Detalle inventario de una variante."
+          }
         }
       ]
     },
@@ -1148,8 +1528,254 @@
             "url": "{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/ticket.pdf",
             "description": "Descarga PDF del envío `{{shipmentId}}`."
           }
+        },
+        {
+          "name": "Listar envíos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/shipments?page=1&pageSize=20",
+            "description": "Listado paginado."
+          }
+        },
+        {
+          "name": "Ticket PDF por pedido",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ticket",
+            "description": "PDF por orderId."
+          }
+        },
+        {
+          "name": "Marcar envío en tránsito",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/in-transit",
+            "description": ""
+          }
+        },
+        {
+          "name": "Marcar envío entregado",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/delivered",
+            "description": ""
+          }
+        },
+        {
+          "name": "Eliminar conductor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}",
+            "description": ""
+          }
+        },
+        {
+          "name": "Listo despacho (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ready-to-dispatch",
+            "description": "Paid → ReadyToDispatch"
+          }
         }
       ]
+    },
+    {
+      "name": "09 - Admin - Portadas (Covers)",
+      "item": [
+        {
+          "name": "Listar portadas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const list = pm.response.json();",
+                  "  if (Array.isArray(list) && list.length) {",
+                  "    pm.collectionVariables.set('coverId', list[0].id);",
+                  "    try { pm.environment.set('coverId', list[0].id); } catch(e) {}",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/covers",
+            "description": "CRUD portadas del home."
+          }
+        },
+        {
+          "name": "Crear portada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/covers",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Promo verano\",\n  \"imageUrl\": \"https://placehold.co/1200x400\",\n  \"linkUrl\": \"/catalog/products\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('coverId', pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar portada",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/covers/{{coverId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Promo actualizada\",\n  \"imageUrl\": \"https://placehold.co/1200x400\",\n  \"linkUrl\": \"/catalog/products\",\n  \"sortOrder\": 1,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reordenar portadas",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/covers/reorder",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{coverId}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Eliminar portada",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/covers/{{coverId}}",
+            "description": ""
+          }
+        }
+      ],
+      "description": "Requiere **Login Admin**."
+    },
+    {
+      "name": "10 - Admin - Opciones producto",
+      "item": [
+        {
+          "name": "Listar opciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/options",
+            "description": ""
+          }
+        },
+        {
+          "name": "Crear opción",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/options",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Color\",\n  \"sortOrder\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.collectionVariables.set('optionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar valor opción",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/options/{{optionId}}/values",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": \"Negro\",\n  \"sortOrder\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Necesita {{productId}} del listado admin."
     },
     {
       "name": "Flujo Cliente (ejecutar en orden)",

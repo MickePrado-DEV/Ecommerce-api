@@ -4,6 +4,8 @@ Base: `http://localhost:5088/api/v1`
 
 Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 
+> Colección Postman actualizada: `postman/Ecommerce-API.postman_collection.json`
+
 ---
 
 ## Sistema
@@ -12,8 +14,8 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 |--------|------|------|-------------|
 | GET | `/health` | 🔓 | `{ status: "ok" }` |
 | GET | `/ready` | 🔓 | BD accesible (`503` si no) |
-| GET | `/openapi/v1.json` | 🔓 | OpenAPI (no producción) |
-| GET | `/scalar/v1` | 🔓 | UI Scalar |
+| GET | `/openapi/v1.json` | 🔓 | Contrato OpenAPI (no producción) |
+| GET | `/scalar/v1` | 🔓 | UI Scalar (no producción) |
 
 ---
 
@@ -41,14 +43,23 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 |--------|------|------|-------------|
 | GET | `/home?take=12` | 🔓 | Portadas + últimos productos |
 | GET | `/covers` | 🔓 | Portadas activas |
-| GET | `/products/latest?take=12` | 🔓 | Últimos productos |
+| GET | `/products/latest?take=12` | 🔓 | Últimos N productos |
 | GET | `/families` | 🔓 | Árbol familias → categorías → subcategorías |
-| GET | `/families/{slug}` | 🔓 | Familia + categorías |
+| GET | `/families/{slug}` | 🔓 | Familia + categorías hijas |
 | GET | `/categories/{slug}` | 🔓 | Categoría + subcategorías |
 | GET | `/subcategories/{slug}` | 🔓 | Subcategoría |
-| GET | `/products` | 🔓 | Filtros: `familyId`, `categoryId`, `subCategoryId`, `q`, `sort` |
-| GET | `/search?q=` | 🔓 | Alias de listado con búsqueda |
+| GET | `/products` | 🔓 | Listado paginado con filtros |
+| GET | `/search?q=` | 🔓 | Alias de búsqueda en productos |
 | GET | `/products/{slug}` | 🔓 | Detalle con variantes, precios e imágenes |
+
+### Query `GET /products`
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `page`, `pageSize` | Paginación (default 1, 20) |
+| `familyId`, `categoryId`, `subCategoryId` | Filtro jerárquico |
+| `q` | Búsqueda por nombre/descripción |
+| `sort` | `price:asc`, `price:desc`, `recent` (o `1`/`2`/`3`) |
 
 ---
 
@@ -56,14 +67,14 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 
 | Método | Ruta | Auth | Headers | Descripción |
 |--------|------|------|---------|-------------|
-| GET | `/` | opcional | `X-Guest-Token` (invitado) o JWT | Ver carrito |
+| GET | `/` | opcional | `X-Guest-Token` o JWT | Ver carrito |
 | POST | `/items` | opcional | idem | Agregar variante (`variantId`, `quantity`) |
 | PUT / PATCH | `/items/{itemId}` | opcional | idem | Actualizar cantidad |
 | DELETE | `/items/{itemId}` | opcional | idem | Quitar línea |
 | DELETE | `/` | opcional | idem | Vaciar carrito |
-| POST | `/merge` | 🔐 | Fusionar carrito invitado (`guestToken`) |
+| POST | `/merge` | 🔐 | — | Fusionar carrito invitado (`guestToken`) |
 
-**Invitado:** enviar header `X-Guest-Token` (GUID). Si no existe, la API crea uno y lo devuelve en la respuesta del carrito.
+**Invitado:** header `X-Guest-Token` (GUID). Si no existe, la API crea uno y lo devuelve en la respuesta.
 
 **Usuario:** JWT de cliente; el carrito se asocia a `userId`.
 
@@ -79,6 +90,21 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 | PUT | `/{id}` | 🔐 | Actualizar |
 | DELETE | `/{id}` | 🔐 | Eliminar |
 | PATCH | `/{id}/default` | 🔐 | Marcar predeterminada |
+
+### Body crear/actualizar
+
+```json
+{
+  "label": "Casa",
+  "street": "Av. Reforma 123",
+  "city": "Ciudad de México",
+  "state": "CDMX",
+  "postalCode": "06600",
+  "country": "MX",
+  "phone": "5551234567",
+  "isDefault": true
+}
+```
 
 ---
 
@@ -138,36 +164,62 @@ Todos requieren JWT de admin con el permiso indicado.
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/dashboard` | `admin.dashboard.view` | Ping de panel admin |
+| GET | `/dashboard` | `admin.dashboard.view` | Stats (alias de `/dashboard/stats`) |
+| GET | `/dashboard/stats` | `admin.dashboard.view` | Contadores pedidos/productos/usuarios |
 
-### Catálogo — `/admin/catalog`
+### Portadas — `/admin/covers`
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/families` | `admin.families.view` | Listar familias |
-| POST | `/families` | `admin.families.manage` | Crear familia |
-| PUT | `/families/{id}` | `admin.families.manage` | Actualizar |
-| DELETE | `/families/{id}` | `admin.families.manage` | Eliminar |
-| POST | `/categories` | `admin.categories.manage` | Crear categoría |
-| PUT | `/categories/{id}` | `admin.categories.manage` | Actualizar |
-| DELETE | `/categories/{id}` | `admin.categories.manage` | Eliminar |
-| POST | `/subcategories` | `admin.subcategories.manage` | Crear subcategoría |
-| PUT | `/subcategories/{id}` | `admin.subcategories.manage` | Actualizar |
-| DELETE | `/subcategories/{id}` | `admin.subcategories.manage` | Eliminar |
-| GET | `/products?page&pageSize` | `admin.products.view` | Listar productos |
-| POST | `/products` | `admin.products.manage` | Crear producto |
-| PUT | `/products/{id}` | `admin.products.manage` | Actualizar |
-| DELETE | `/products/{id}` | `admin.products.manage` | Baja lógica (`IsActive=false`) |
-| POST | `/variants` | `admin.products.manage` | Crear variante (+ stock inicial opcional) |
-| PUT | `/variants/{id}` | `admin.products.manage` | Actualizar variante |
-| DELETE | `/variants/{id}` | `admin.products.manage` | Baja lógica variante |
+| GET | `/` | `admin.covers.view` | Listar |
+| GET | `/{id}` | `admin.covers.view` | Detalle |
+| POST | `/` | `admin.covers.manage` | Crear |
+| PUT | `/{id}` | `admin.covers.manage` | Actualizar |
+| DELETE | `/{id}` | `admin.covers.manage` | Eliminar |
+| PATCH | `/reorder` | `admin.covers.manage` | Body: `{ "ids": [guid, ...] }` |
+
+### Catálogo — `/admin/catalog` (y aliases `/admin/families`, `/admin/products`)
+
+| Método | Ruta | Permiso | Descripción |
+|--------|------|---------|-------------|
+| GET | `/catalog/families` | `admin.families.view` | Listar familias |
+| POST | `/catalog/families` | `admin.families.manage` | Crear familia |
+| PUT | `/catalog/families/{id}` | `admin.families.manage` | Actualizar |
+| DELETE | `/catalog/families/{id}` | `admin.families.manage` | Eliminar |
+| POST | `/catalog/categories` | `admin.categories.manage` | Crear categoría |
+| PUT | `/catalog/categories/{id}` | `admin.categories.manage` | Actualizar |
+| DELETE | `/catalog/categories/{id}` | `admin.categories.manage` | Eliminar |
+| POST | `/catalog/subcategories` | `admin.subcategories.manage` | Crear subcategoría |
+| PUT | `/catalog/subcategories/{id}` | `admin.subcategories.manage` | Actualizar |
+| DELETE | `/catalog/subcategories/{id}` | `admin.subcategories.manage` | Eliminar |
+| GET | `/catalog/products?page&pageSize` | `admin.products.view` | Listar productos |
+| POST | `/catalog/products` | `admin.products.manage` | Crear producto |
+| PUT | `/catalog/products/{id}` | `admin.products.manage` | Actualizar |
+| DELETE | `/catalog/products/{id}` | `admin.products.manage` | Baja lógica |
+| POST | `/catalog/variants` | `admin.products.manage` | Crear variante |
+| PUT | `/catalog/variants/{id}` | `admin.products.manage` | Actualizar variante |
+| PUT | `/variants/{id}` | `admin.products.manage` | Alias actualizar variante |
+| DELETE | `/catalog/variants/{id}` | `admin.products.manage` | Baja lógica variante |
+
+### Opciones por producto — `/admin/products/{productId}/options`
+
+| Método | Ruta | Permiso | Descripción |
+|--------|------|---------|-------------|
+| GET | `/options` | `admin.options.view` | Listar opciones + valores |
+| POST | `/options` | `admin.options.manage` | Crear opción |
+| PUT | `/options/{optionId}` | `admin.options.manage` | Actualizar opción |
+| DELETE | `/options/{optionId}` | `admin.options.manage` | Eliminar opción |
+| POST | `/options/{optionId}/values` | `admin.options.manage` | Crear valor |
+| PUT | `/options/{optionId}/values/{valueId}` | `admin.options.manage` | Actualizar valor |
+| DELETE | `/options/{optionId}/values/{valueId}` | `admin.options.manage` | Eliminar valor |
 
 ### Inventario — `/admin/inventory`
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
 | GET | `/` | `admin.stock.view` | Stock por variante |
-| PUT | `/{variantId}` | `admin.stock.manage` | Fijar `quantityOnHand` |
+| GET | `/{variantId}` | `admin.stock.view` | Detalle de una variante |
+| PUT / PATCH | `/{variantId}` | `admin.stock.manage` | Fijar `quantityOnHand` |
 
 ### Pedidos — `/admin/orders`
 
@@ -175,17 +227,23 @@ Todos requieren JWT de admin con el permiso indicado.
 |--------|------|---------|-------------|
 | GET | `/?page&pageSize&status` | `admin.orders.view` | Listado admin |
 | GET | `/{orderId}` | `admin.orders.view` | Detalle |
+| GET | `/{orderId}/ticket` | `admin.orders.view` | PDF ticket por pedido |
 | POST | `/{orderId}/ready` | `admin.orders.manage` | `Paid` → `ReadyToDispatch` |
+| PATCH | `/{orderId}/ready-to-dispatch` | `admin.orders.manage` | Mismo efecto que POST ready |
 
-### Envíos — `/admin/shipments` y `/admin/drivers`
+### Envíos y conductores
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
+| GET | `/shipments?page&pageSize` | `admin.shipments.view` | Listar envíos |
 | POST | `/shipments` | `admin.shipments.manage` | Crear envío + ticket |
-| GET | `/shipments/{id}/ticket.pdf` | `admin.shipments.view` | Descargar PDF |
+| GET | `/shipments/{id}/ticket.pdf` | `admin.shipments.view` | PDF por envío |
+| PATCH | `/shipments/{id}/in-transit` | `admin.shipments.manage` | En tránsito |
+| PATCH | `/shipments/{id}/delivered` | `admin.shipments.manage` | Entregado |
 | GET | `/drivers` | `admin.drivers.view` | Listar repartidores |
-| POST | `/drivers` | `admin.drivers.manage` | Crear repartidor |
+| POST | `/drivers` | `admin.drivers.manage` | Crear |
 | PUT | `/drivers/{id}` | `admin.drivers.manage` | Actualizar |
+| DELETE | `/drivers/{id}` | `admin.drivers.manage` | Eliminar |
 
 ---
 
@@ -194,10 +252,11 @@ Todos requieren JWT de admin con el permiso indicado.
 | Código | Cuándo |
 |--------|--------|
 | 200 | OK |
-| 204 | Logout / delete sin body |
+| 204 | Sin body (logout, delete, PATCH estado) |
 | 400 | Validación FluentValidation o regla de negocio |
 | 401 | Sin token o credenciales inválidas |
 | 403 | Sin permiso admin |
-| 404 | `NotFoundException` |
-| 409 | `InsufficientStockException` |
+| 404 | Recurso no encontrado |
+| 409 | Stock insuficiente |
 | 500 | Error no controlado |
+| 503 | `/ready` cuando BD no responde |

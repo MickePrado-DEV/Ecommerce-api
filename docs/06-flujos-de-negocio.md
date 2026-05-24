@@ -18,7 +18,8 @@ sequenceDiagram
     API->>DB: Carrito del userId
     API-->>C: carrito actualizado
 
-    C->>API: POST /checkout { dirección, shippingCost }
+    C->>API: POST /addresses (opcional, guardar dirección)
+    C->>API: POST /checkout { addressId o dirección inline, shippingCost }
     API->>DB: BEGIN TRANSACTION
     API->>DB: Crear Order (PendingPayment)
     API->>DB: Reservar stock (QuantityReserved++)
@@ -52,7 +53,15 @@ sequenceDiagram
 1. `GET /cart` o `POST /cart/items` sin JWT.
 2. Opcional: header `X-Guest-Token: {guid}` en siguientes llamadas.
 3. Si no hay token, la API genera `GuestToken` en el carrito nuevo.
-4. El checkout **requiere login** (solo usuarios autenticados pagan).
+4. Tras `POST /auth/login`, `POST /cart/merge` con `{ "guestToken": "..." }` fusiona líneas al carrito del usuario.
+5. `DELETE /cart` vacía el carrito; `PATCH /cart/items/{id}` actualiza cantidad.
+6. El checkout **requiere login** (solo usuarios autenticados pagan).
+
+## 2b. Direcciones del cliente
+
+1. `POST /addresses` crea dirección (opcional `isDefault: true`).
+2. `PATCH /addresses/{id}/default` cambia la predeterminada.
+3. En checkout: `POST /checkout` con `{ "addressId": "...", "shippingCost": 99 }` en lugar de campos inline.
 
 ## 3. Flujo admin — despacho
 
@@ -60,9 +69,11 @@ sequenceDiagram
 
 | Paso | Endpoint | Efecto |
 |------|----------|--------|
-| 1 | `POST /admin/orders/{id}/ready` | `Paid` → `ReadyToDispatch` |
+| 1 | `POST` o `PATCH /admin/orders/{id}/ready-to-dispatch` | `Paid` → `ReadyToDispatch` |
 | 2 | `POST /admin/shipments` | Crea `Shipment` + `DispatchTicket`, orden → `Dispatched` |
-| 3 | `GET /admin/shipments/{id}/ticket.pdf` | Genera PDF con QuestPDF |
+| 3 | `GET /admin/shipments/{id}/ticket.pdf` o `GET /admin/orders/{id}/ticket` | PDF con QuestPDF |
+| 4 | `PATCH /admin/shipments/{id}/in-transit` | Estado envío → `InTransit` |
+| 5 | `PATCH /admin/shipments/{id}/delivered` | Estado envío → `Delivered` |
 
 ## 4. Validación de entrada
 

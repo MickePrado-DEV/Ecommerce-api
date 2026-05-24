@@ -29,12 +29,13 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 
 ## Resumen ejecutivo
 
-- **Tienda (público):** catálogo jerárquico (familias → categorías → subcategorías → productos → variantes).
-- **Carrito:** soporta usuario autenticado o invitado (`X-Guest-Token`).
-- **Checkout:** crea pedido, reserva stock en transacción.
-- **Pago:** mock que confirma stock y marca pedido como pagado.
-- **Admin:** CRUD catálogo, inventario, pedidos, envíos y ticket PDF (QuestPDF).
+- **Tienda (público):** home (portadas + novedades), catálogo por slug, búsqueda y filtros.
+- **Carrito:** invitado (`X-Guest-Token`), merge al login, vaciar y PATCH cantidad.
+- **Direcciones:** CRUD del cliente; checkout con `addressId` o dirección inline.
+- **Checkout:** crea pedido, reserva stock; pago mock y reintento de pago.
+- **Admin:** dashboard stats, covers, catálogo, opciones por producto, inventario, pedidos, envíos (in-transit/delivered), PDF.
 - **Seguridad:** JWT con permisos granulares en claims; políticas por endpoint admin.
+- **Pruebas:** colección Postman en `postman/` alineada con `03-api-endpoints.md`.
 
 ## Usuarios de prueba (seed)
 

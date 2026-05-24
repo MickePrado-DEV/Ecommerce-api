@@ -67,4 +67,4 @@ Definidos en `Application/Authorization/AdminPermissions.cs`:
 - `admin.orders.view` / `admin.orders.manage`
 - `admin.shipments.view` / `admin.shipments.manage`
 
-> **Nota:** Entidades `Cover` y `ProductOption` existen en dominio; endpoints admin de covers/options pueden ampliarse en el futuro.
+> **Covers y opciones:** `admin.covers.*` → `/admin/covers`. `admin.options.*` → `/admin/products/{productId}/options` (modelo por producto, no opciones globales tipo Laravel).

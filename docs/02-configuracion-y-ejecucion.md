@@ -67,18 +67,30 @@ Con la API en marcha (no en Production):
 - **Scalar:** http://localhost:5088/scalar/v1
 - **OpenAPI JSON:** http://localhost:5088/openapi/v1.json
 
-## Health check
+## Health y readiness
 
 ```http
 GET /health
 ```
 
-Respuesta esperada:
+```json
+{ "status": "ok" }
+```
+
+```http
+GET /ready
+```
 
 ```json
-{ "status": "ok", "database": "connected" }
+{ "status": "ready" }
 ```
+
+Si la BD no responde, `/ready` devuelve **503**.
 
 ## Probar con Postman
 
-Ver `../postman/README.md` — importar colección + entorno **Ecommerce - Local**.
+1. Importar `postman/Ecommerce-API.postman_collection.json` + `Ecommerce-Local.postman_environment.json`
+2. Ejecutar **00 - Setup** → `Ready (BD)` y **Login Cliente** o **Login Admin**
+3. Ver carpetas por dominio (catálogo, carrito, direcciones, admin covers, etc.)
+
+Detalle: [`../postman/README.md`](../postman/README.md) · Endpoints: [`03-api-endpoints.md`](03-api-endpoints.md)

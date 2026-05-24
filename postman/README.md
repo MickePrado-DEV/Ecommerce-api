@@ -1,6 +1,6 @@
 # Postman - Ecommerce API
 
-Documentación del backend: [`../docs/`](../docs/README.md)
+Documentación del backend: [`../docs/`](../docs/README.md) · Endpoints: [`../docs/03-api-endpoints.md`](../docs/03-api-endpoints.md)
 
 ## Qué importar en Postman
 
@@ -11,28 +11,46 @@ Solo estos **2 archivos JSON** (no importes la carpeta `scripts/`):
 | `Ecommerce-API.postman_collection.json` | Colección con todos los endpoints |
 | `Ecommerce-Local.postman_environment.json` | Variables de entorno local |
 
-Los scripts de login, sesión y variables ya van **dentro** del JSON de la colección (pestañas **Tests** y **Pre-request** en Postman). No hace falta copiar nada manualmente.
+Los scripts de login, sesión y variables van **dentro** del JSON de la colección (pestañas **Tests** y **Pre-request**).
 
-### Carpeta `scripts/` (solo para el repo, no para Postman)
+### Carpeta `scripts/` (solo para el repo)
 
 | Archivo | Para qué sirve |
 |---------|----------------|
-| `save-auth-session.js` | Referencia del código de sesión (ya está embebido en la colección) |
-| `enrich-collection-descriptions.js` | Herramienta Node para regenerar descripciones en el JSON (`node postman/scripts/enrich-collection-descriptions.js`) |
+| `save-auth-session.js` | Referencia del código de sesión (embebido en la colección) |
+| `enrich-collection-descriptions.js` | Regenerar descripciones en el JSON |
+| `sync-collection-v2.js` | Añadir endpoints nuevos a la colección (`node postman/scripts/sync-collection-v2.js`) |
 
-Puedes ignorar `scripts/` al usar Postman.
+## Estructura de la colección
+
+| Carpeta | Contenido |
+|---------|-----------|
+| **00 - Setup** | Health, Ready (BD), Login Admin/Cliente |
+| **01 - Auth** | Register, refresh, me, logout |
+| **02 - Catálogo** | Home, covers, slugs, búsqueda, filtros |
+| **03 - Carrito** | Guest (GET/POST/PATCH/DELETE), merge con JWT |
+| **03b - Direcciones** | CRUD + default (cliente autenticado) |
+| **04 - Checkout y Pedidos** | Checkout inline o `addressId`, pay, retry |
+| **05 - Admin General** | Dashboard + stats |
+| **06 - Admin Catálogo** | CRUD familias, categorías, productos, variantes |
+| **07 - Admin Inventario** | Listar y ajustar stock |
+| **08 - Admin Pedidos y Envíos** | Pedidos, PDF, envíos in-transit/delivered, conductores |
+| **09 - Admin Portadas** | CRUD covers + reorder |
+| **10 - Admin Opciones** | Opciones y valores por producto |
+| **Flujo Cliente** | Compra completa en orden |
+| **Flujo Admin** | Despacho + PDF |
 
 ## Importar en Postman
 
-1. Abre Postman → **Import**
-2. Arrastra **solo** los dos `.json` de arriba (o selecciónalos con Upload)
-3. Selecciona el entorno **Ecommerce - Local** (esquina superior derecha)
+1. Postman → **Import** → los dos `.json`
+2. Entorno **Ecommerce - Local** (esquina superior derecha)
 
 ## Antes de probar
 
-1. Ejecuta la API con perfil **SqlServer** (`http://localhost:5088`)
-2. Verifica `GET {{baseUrl}}/health` → `database: connected`
-3. Si Postman devuelve `{"error":"Error interno del servidor"}`: la BD LocalDB `ecommerce` tenía un esquema viejo. **Reinicia la API** (al arrancar recrea tablas si detecta columnas faltantes) o borra la BD en SSMS y vuelve a ejecutar.
+1. API en `http://localhost:5088` (perfil SqlServer)
+2. `GET {{baseUrl}}/health` → `{ "status": "ok" }`
+3. `GET {{baseUrl}}/ready` → `{ "status": "ready" }` (comprueba BD)
+4. Si hay error 500: reinicia la API (puede recrear esquema si la BD LocalDB estaba desactualizada)
 
 ## Usuarios de prueba (seed)
 
@@ -41,33 +59,56 @@ Puedes ignorar `scripts/` al usar Postman.
 | Admin | `admin@ecommerce.local` | `Admin123!` |
 | Cliente | `cliente@ecommerce.local` | `Cliente123!` |
 
-Producto demo: slug `audifonos-pro-x` (variable `productSlug`)
+| Variable | Valor seed |
+|----------|------------|
+| `productSlug` | `audifonos-pro-x` |
+| `familySlug` | `electronica` |
+| `categorySlug` | `audio` |
+| `subcategorySlug` | `audifonos` |
 
-## Autenticación automática (sesión)
+## Autenticación automática
 
-1. Ejecuta **Login Admin** o **Login Cliente** (carpeta `00 - Setup` o al inicio de los flujos).
-2. El script de **Tests** guarda en colección y entorno:
-   - `accessToken`, `refreshToken`
-   - `userEmail`, `userId`, `sessionRole`, `isLoggedIn`
-3. El resto de peticiones heredan **Bearer Token** de la colección (`{{accessToken}}`).
-4. Un script **Pre-request** de colección añade `Authorization: Bearer …` si hay token (excepto en peticiones con `noauth`).
-5. **Logout** limpia la sesión. **Refresh Token** renueva los tokens.
+1. **Login Admin** o **Login Cliente** (carpeta 00 - Setup)
+2. Tests guardan `accessToken`, `refreshToken`, `userId`, etc.
+3. El resto de peticiones usa **Bearer {{accessToken}}** (colección + pre-request)
+4. Carrito invitado: header `X-Guest-Token: {{guestToken}}` (se guarda al agregar ítem)
+5. **Merge carrito:** tras login cliente, `POST /cart/merge` con `guestToken` previo
 
-> Tras un login, el último rol activo queda en `accessToken`. Para probar admin, haz **Login Admin**; para cliente, **Login Cliente**.
+## Flujos recomendados
 
-## Uso rápido
+### Cliente (compra con dirección guardada)
 
-1. **00 - Setup** → `Login Cliente` o `Login Admin`
-2. **Flujo Cliente** → Run folder (compra completa; el paso 1 vuelve a guardar sesión)
-3. **Flujo Admin** → Run folder (despacho + PDF; requiere pedido pagado)
+1. `00 - Setup` → Login Cliente
+2. `02 - Catálogo` → Detalle producto (guarda `variantId`)
+3. `03 - Carrito` → Agregar ítem
+4. `03b - Direcciones` → Crear dirección (guarda `addressId`)
+5. `04 - Checkout` → **Checkout (con addressId)** → Pago mock
 
-Las variables (`variantId`, `orderId`, etc.) se guardan solas con los scripts **Tests**.
+### Admin (despacho)
 
-## Bodies y descripciones
+1. Login Admin
+2. Pedido pagado del flujo cliente → `Marcar listo para despacho`
+3. `Crear envío` → `Descargar ticket PDF` o `Ticket PDF por pedido`
 
-- Cada **POST/PUT** trae el JSON de ejemplo en la pestaña **Body** (credenciales seed, `{{variantId}}`, dirección de envío, catálogo admin, etc.).
-- En la pestaña **Description** (panel derecho de cada request) está documentado cada campo: qué tocar y qué se rellena solo.
-- En la mayoría de casos puedes **Send** directo; solo cambia valores si quieres otro escenario (email en Register, `description` del producto, dirección de checkout, nombres/slug en admin).
+### Invitado + merge
+
+1. Sin login: Guest - Agregar item (guarda `guestToken`)
+2. Login Cliente
+3. Usuario - Merge carrito guest
+
+## Variables automáticas
+
+| Variable | Se guarda en |
+|----------|----------------|
+| `accessToken`, `refreshToken` | Login / Register / Refresh |
+| `variantId` | Detalle producto / agregar carrito |
+| `cartItemId` | Carrito guest |
+| `guestToken` | Carrito invitado |
+| `addressId` | Direcciones |
+| `orderId` | Checkout |
+| `familyId`, `categoryId`, `productId` | Admin catálogo |
+| `shipmentId`, `driverId` | Admin envíos |
+| `coverId`, `optionId` | Admin covers / opciones |
 
 ## Cambiar URL
 
