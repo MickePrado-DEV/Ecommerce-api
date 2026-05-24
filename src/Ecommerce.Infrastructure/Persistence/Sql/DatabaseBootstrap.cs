@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,15 @@ public static class DatabaseBootstrap
         try
         {
             await db.Database.EnsureCreatedAsync(ct);
+
+            if (!await SchemaIsCurrentAsync(db, ct))
+            {
+                logger.LogWarning(
+                    "La base de datos existe pero el esquema no coincide con el modelo actual. Recreando tablas...");
+                await db.Database.EnsureDeletedAsync(ct);
+                await db.Database.EnsureCreatedAsync(ct);
+            }
+
             await DbSeeder.SeedAsync(db, ct);
             logger.LogInformation("Base de datos inicializada correctamente ({Provider})", db.Database.ProviderName);
         }
@@ -30,6 +40,27 @@ public static class DatabaseBootstrap
             throw;
         }
     }
+
+    private static async Task<bool> SchemaIsCurrentAsync(EcommerceDbContext db, CancellationToken ct)
+    {
+        try
+        {
+            await db.Users.AsNoTracking().Select(u => u.IsActive).Take(1).ToListAsync(ct);
+            return true;
+        }
+        catch (Exception ex) when (IsSchemaMismatch(ex))
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSchemaMismatch(Exception ex) =>
+        ex switch
+        {
+            SqlException { Number: 207 } => true,
+            { InnerException: not null } => IsSchemaMismatch(ex.InnerException),
+            _ => false
+        };
 
     private static string MaskConnectionString(string cs) =>
         string.Join(';', cs.Split(';', StringSplitOptions.RemoveEmptyEntries)

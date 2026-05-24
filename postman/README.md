@@ -32,6 +32,7 @@ Puedes ignorar `scripts/` al usar Postman.
 
 1. Ejecuta la API con perfil **SqlServer** (`http://localhost:5088`)
 2. Verifica `GET {{baseUrl}}/health` → `database: connected`
+3. Si Postman devuelve `{"error":"Error interno del servidor"}`: la BD LocalDB `ecommerce` tenía un esquema viejo. **Reinicia la API** (al arrancar recrea tablas si detecta columnas faltantes) o borra la BD en SSMS y vuelve a ejecutar.
 
 ## Usuarios de prueba (seed)
 
