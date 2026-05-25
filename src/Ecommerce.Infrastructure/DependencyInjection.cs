@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IAddressReadRepository, AddressReadRepository>();
         services.AddScoped<IAddressWriteRepository, AddressWriteRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IAdminUserRepository, AdminUserRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IOrderReadRepository, OrderReadRepository>();

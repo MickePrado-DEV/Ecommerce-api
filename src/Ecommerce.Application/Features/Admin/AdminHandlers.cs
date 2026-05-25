@@ -532,7 +532,7 @@ public class ListProductOptionsQueryHandler(IProductOptionRepository repo, IAdmi
     }
 }
 
-public record SaveProductOptionCommand(Guid ProductId, Guid? OptionId, string Name, int SortOrder)
+public record SaveProductOptionCommand(Guid ProductId, Guid? OptionId, string Name, int OptionType, int SortOrder)
     : IRequest<Result<ProductOptionDto>>;
 
 public class SaveProductOptionCommandHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
@@ -547,9 +547,10 @@ public class SaveProductOptionCommandHandler(IProductOptionRepository repo, IAdm
             Id = request.OptionId ?? Guid.Empty,
             ProductId = request.ProductId,
             Name = request.Name,
+            OptionType = request.OptionType is 1 or 2 ? request.OptionType : 1,
             SortOrder = request.SortOrder
         }, ct);
-        return Result.Ok(new ProductOptionDto(saved.Id, saved.ProductId, saved.Name, saved.SortOrder, []));
+        return Result.Ok(new ProductOptionDto(saved.Id, saved.ProductId, saved.Name, saved.OptionType, saved.SortOrder, []));
     }
 }
 
@@ -601,6 +602,6 @@ public class DeleteOptionValueCommandHandler(IProductOptionRepository repo)
 internal static class AdminProductOptionMapping
 {
     public static ProductOptionDto Map(ProductOption o) => new(
-        o.Id, o.ProductId, o.Name, o.SortOrder,
+        o.Id, o.ProductId, o.Name, o.OptionType, o.SortOrder,
         o.Values.OrderBy(v => v.SortOrder).Select(v => new OptionValueDto(v.Id, v.Value, v.SortOrder)).ToList());
 }

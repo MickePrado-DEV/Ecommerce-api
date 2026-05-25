@@ -14,4 +14,9 @@ public interface ICatalogReadRepository
     Task<ProductDetailDto?> GetProductBySlugAsync(string slug, CancellationToken ct = default);
     Task<ResolvedVariantDto?> ResolveVariantAsync(string slug, IReadOnlyList<Guid> optionValueIds, CancellationToken ct = default);
     Task<PagedResult<ProductListItemDto>> ListProductsAsync(CatalogProductQuery query, CancellationToken ct = default);
+    Task<IReadOnlyList<CatalogOptionDto>> GetFilterOptionsAsync(
+        Guid? familyId,
+        Guid? categoryId,
+        Guid? subCategoryId,
+        CancellationToken ct = default);
 }

@@ -187,9 +187,9 @@ GET http://localhost:5088/ready
 
 | Demo | Valor |
 |------|--------|
-| Producto | slug `audifonos-pro-x` |
-| Variantes | `APX-001` (Negro), `APX-002` (Blanco) |
+| Catálogo | 18 familias, 632 subcategorías, 50 productos (seed Laravel) |
 | Cupón | `WELCOME10` (10 %, subtotal mínimo 50) |
+| Reseed | `scripts/seed-catalog.ps1` o `SEED_RESET_CATALOG=true` al arrancar |
 
 ---
 

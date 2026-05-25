@@ -2,6 +2,7 @@
 using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Checkout;
 using Ecommerce.Application.Features.Checkout;
+using Ecommerce.Application.DTOs.Orders;
 using Ecommerce.Application.Features.Orders;
 using MediatR;
 
@@ -23,11 +24,11 @@ public static class CheckoutEndpoints
         });
 
         // Pago simulado desde checkout (misma lógica que POST /orders/{id}/pay)
-        checkout.MapPost("/{orderId:guid}/pay", async (Guid orderId, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        checkout.MapPost("/{orderId:guid}/pay", async (Guid orderId, PayOrderRequest? req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return (await sender.Send(new PayOrderCommand(userId.Value, orderId), ct)).ToHttpResult();
+            return (await sender.Send(new PayOrderCommand(userId.Value, orderId, req), ct)).ToHttpResult();
         });
 
         return group;

@@ -26,4 +26,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="Persistence\Sql\Seed\catalog-families.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Seed\catalog-families.json</Link>
+    </None>
+  </ItemGroup>
+
 </Project>

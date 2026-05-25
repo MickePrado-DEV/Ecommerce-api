@@ -14,8 +14,12 @@ public class SaveAddressCommandHandler(IAddressWriteRepository writeRepo)
         if (request.Id is null || request.Id == Guid.Empty)
         {
             var create = AddressRules.Create(
-                request.UserId, request.Label, request.Street, request.City,
-                request.State, request.PostalCode, request.Country, request.Phone, request.IsDefault);
+                request.UserId, request.Type, request.Label, request.ContactName,
+                request.Street, request.ExternalNumber, request.InternalNumber,
+                request.Neighborhood, request.Municipality, request.City,
+                request.State, request.PostalCode, request.Country, request.Phone,
+                request.References, request.DeliveryInstructions,
+                request.Latitude, request.Longitude, request.IsDefault);
 
             if (create.IsFailed)
                 return Result.Fail<AddressDto>(create.Errors);
@@ -29,8 +33,12 @@ public class SaveAddressCommandHandler(IAddressWriteRepository writeRepo)
             return Result.Fail<AddressDto>(AddressErrors.NotFound(request.Id.Value));
 
         var update = AddressRules.ApplyUpdate(
-            existing, request.Label, request.Street, request.City,
-            request.State, request.PostalCode, request.Country, request.Phone, request.IsDefault);
+            existing, request.Type, request.Label, request.ContactName,
+            request.Street, request.ExternalNumber, request.InternalNumber,
+            request.Neighborhood, request.Municipality, request.City,
+            request.State, request.PostalCode, request.Country, request.Phone,
+            request.References, request.DeliveryInstructions,
+            request.Latitude, request.Longitude, request.IsDefault);
 
         if (update.IsFailed)
             return Result.Fail<AddressDto>(update.Errors);
@@ -40,5 +48,7 @@ public class SaveAddressCommandHandler(IAddressWriteRepository writeRepo)
     }
 
     private static AddressDto Map(Domain.Entities.Address a) => new(
-        a.Id, a.Label, a.Street, a.City, a.State, a.PostalCode, a.Country, a.Phone, a.IsDefault);
+        a.Id, a.Type, a.Label, a.ContactName, a.Street, a.ExternalNumber, a.InternalNumber,
+        a.Neighborhood, a.Municipality, a.City, a.State, a.PostalCode, a.Country, a.Phone,
+        a.References, a.DeliveryInstructions, a.Latitude, a.Longitude, a.IsDefault);
 }

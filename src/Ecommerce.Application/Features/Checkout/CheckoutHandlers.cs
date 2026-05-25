@@ -156,10 +156,17 @@ public class CreateOrderCommandHandler(
             if (address is null)
                 return Result.Fail<OrderAddress>(OrderErrors.AddressNotFound(request.AddressId.Value));
 
+            var streetLine = string.Join(" ", new[]
+            {
+                address.Street,
+                address.ExternalNumber,
+                string.IsNullOrWhiteSpace(address.InternalNumber) ? null : $"Int. {address.InternalNumber}"
+            }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
             return Result.Ok(new OrderAddress
             {
-                FullName = address.Label,
-                Street = address.Street,
+                FullName = address.ContactName ?? address.Label,
+                Street = streetLine,
                 City = address.City,
                 State = address.State,
                 PostalCode = address.PostalCode,

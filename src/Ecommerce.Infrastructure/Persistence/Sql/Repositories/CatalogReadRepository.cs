@@ -202,6 +202,50 @@ public class CatalogReadRepository(EcommerceDbContext db) : ICatalogReadReposito
             p.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault()
                 ?? p.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault());
 
+    public async Task<IReadOnlyList<CatalogOptionDto>> GetFilterOptionsAsync(
+        Guid? familyId,
+        Guid? categoryId,
+        Guid? subCategoryId,
+        CancellationToken ct = default)
+    {
+        var products = db.Products.AsNoTracking().Where(p => p.IsActive);
+
+        if (subCategoryId.HasValue)
+            products = products.Where(p => p.SubcategoryId == subCategoryId);
+        else if (categoryId.HasValue)
+            products = products.Where(p => p.Subcategory.CategoryId == categoryId);
+        else if (familyId.HasValue)
+            products = products.Where(p => p.Subcategory.Category.FamilyId == familyId);
+
+        var rows = await products
+            .SelectMany(p => p.Variants.Where(v => v.IsActive))
+            .SelectMany(v => v.OptionValues)
+            .Select(vov => new
+            {
+                vov.OptionValue.ProductOptionId,
+                vov.OptionValue.ProductOption.Name,
+                OptionSort = vov.OptionValue.ProductOption.SortOrder,
+                vov.OptionValue.Id,
+                vov.OptionValue.Value,
+                ValueSort = vov.OptionValue.SortOrder
+            })
+            .Distinct()
+            .ToListAsync(ct);
+
+        return rows
+            .GroupBy(r => r.ProductOptionId)
+            .OrderBy(g => g.First().OptionSort)
+            .Select(g => new CatalogOptionDto(
+                g.Key,
+                g.First().Name,
+                g.First().OptionSort,
+                g.OrderBy(x => x.ValueSort)
+                    .Select(x => new CatalogOptionValueDto(x.Id, x.Value, x.ValueSort))
+                    .DistinctBy(x => x.Id)
+                    .ToList()))
+            .ToList();
+    }
+
     private static IQueryable<Product> ApplySort(IQueryable<Product> q, string? sort) => sort?.ToLowerInvariant() switch
     {
         "price:desc" or "2" => q.OrderByDescending(p => p.BasePrice),

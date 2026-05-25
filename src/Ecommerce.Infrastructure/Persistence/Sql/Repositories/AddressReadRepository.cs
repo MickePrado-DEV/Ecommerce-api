@@ -11,8 +11,9 @@ public class AddressReadRepository(EcommerceDbContext db) : IAddressReadReposito
             .Where(a => a.UserId == userId)
             .OrderByDescending(a => a.IsDefault)
             .Select(a => new AddressDto(
-                a.Id, a.Label, a.Street, a.City, a.State,
-                a.PostalCode, a.Country, a.Phone, a.IsDefault))
+                a.Id, a.Type, a.Label, a.ContactName, a.Street, a.ExternalNumber, a.InternalNumber,
+                a.Neighborhood, a.Municipality, a.City, a.State, a.PostalCode, a.Country, a.Phone,
+                a.References, a.DeliveryInstructions, a.Latitude, a.Longitude, a.IsDefault))
             .ToListAsync(ct);
         return list;
     }
@@ -21,7 +22,8 @@ public class AddressReadRepository(EcommerceDbContext db) : IAddressReadReposito
         db.Addresses.AsNoTracking()
             .Where(a => a.Id == id && a.UserId == userId)
             .Select(a => new AddressDto(
-                a.Id, a.Label, a.Street, a.City, a.State,
-                a.PostalCode, a.Country, a.Phone, a.IsDefault))
+                a.Id, a.Type, a.Label, a.ContactName, a.Street, a.ExternalNumber, a.InternalNumber,
+                a.Neighborhood, a.Municipality, a.City, a.State, a.PostalCode, a.Country, a.Phone,
+                a.References, a.DeliveryInstructions, a.Latitude, a.Longitude, a.IsDefault))
             .FirstOrDefaultAsync(ct);
 }

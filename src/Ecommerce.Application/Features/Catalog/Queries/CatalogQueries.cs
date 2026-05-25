@@ -114,6 +114,18 @@ public class ListProductsQueryHandler(ICatalogReadRepository repo)
         Result.Ok(await repo.ListProductsAsync(request.Query, ct));
 }
 
+public record GetCatalogFilterOptionsQuery(Guid? FamilyId, Guid? CategoryId, Guid? SubCategoryId)
+    : IRequest<Result<IReadOnlyList<CatalogOptionDto>>>;
+
+public class GetCatalogFilterOptionsQueryHandler(ICatalogReadRepository repo)
+    : IRequestHandler<GetCatalogFilterOptionsQuery, Result<IReadOnlyList<CatalogOptionDto>>>
+{
+    public async Task<Result<IReadOnlyList<CatalogOptionDto>>> Handle(
+        GetCatalogFilterOptionsQuery request,
+        CancellationToken ct) =>
+        Result.Ok(await repo.GetFilterOptionsAsync(request.FamilyId, request.CategoryId, request.SubCategoryId, ct));
+}
+
 public record ResolveProductVariantQuery(string Slug, IReadOnlyList<Guid> OptionValueIds)
     : IRequest<Result<ResolvedVariantDto>>;
 

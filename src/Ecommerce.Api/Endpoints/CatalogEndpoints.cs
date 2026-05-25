@@ -56,6 +56,11 @@ public static class CatalogEndpoints
             (await sender.Send(new ResolveProductVariantQuery(slug, req.OptionValueIds), ct)).ToHttpResult());
 
         // Listado con filtros: familia, categoría, búsqueda, orden, optionValueIds
+        catalog.MapGet("/products/filter-options", async (
+            Guid? familyId, Guid? categoryId, Guid? subCategoryId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetCatalogFilterOptionsQuery(familyId, categoryId, subCategoryId), ct))
+                .ToHttpResult());
+
         catalog.MapGet("/products", async (
             int page, int pageSize, Guid? familyId, Guid? categoryId, Guid? subCategoryId,
             string? q, string? sort, string? optionValueIds, ISender sender, CancellationToken ct) =>

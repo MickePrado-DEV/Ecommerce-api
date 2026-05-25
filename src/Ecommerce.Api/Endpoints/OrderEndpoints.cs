@@ -1,5 +1,6 @@
 // Pedidos del cliente: listado, detalle, tracking, pago y cancelación.
 using Ecommerce.Api.Extensions;
+using Ecommerce.Application.DTOs.Orders;
 using Ecommerce.Application.Features.Orders;
 using MediatR;
 
@@ -41,18 +42,18 @@ public static class OrderEndpoints
             return (await sender.Send(new CancelOrderCommand(userId.Value, orderId), ct)).ToHttpResult();
         });
 
-        orders.MapPost("/{orderId:guid}/pay", async (Guid orderId, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        orders.MapPost("/{orderId:guid}/pay", async (Guid orderId, PayOrderRequest? req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return (await sender.Send(new PayOrderCommand(userId.Value, orderId), ct)).ToHttpResult();
+            return (await sender.Send(new PayOrderCommand(userId.Value, orderId, req), ct)).ToHttpResult();
         });
 
-        orders.MapPost("/{orderId:guid}/retry-payment", async (Guid orderId, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        orders.MapPost("/{orderId:guid}/retry-payment", async (Guid orderId, PayOrderRequest? req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return (await sender.Send(new PayOrderCommand(userId.Value, orderId), ct)).ToHttpResult();
+            return (await sender.Send(new PayOrderCommand(userId.Value, orderId, req), ct)).ToHttpResult();
         });
 
         return group;

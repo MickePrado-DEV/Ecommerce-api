@@ -32,6 +32,7 @@ public static class AdminEndpoints
         MapOrdersAdmin(admin);
         MapShipmentsAdmin(admin);
         MapProductOptionsAdmin(admin);
+        MapUsersAdmin(admin);
 
         return group;
     }
@@ -172,11 +173,11 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.OptionsView);
 
         admin.MapPost("/products/{productId:guid}/options", async (Guid productId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveProductOptionCommand(productId, null, req.Name, req.SortOrder), ct)).ToHttpResult())
+            (await sender.Send(new SaveProductOptionCommand(productId, null, req.Name, req.OptionType, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
         admin.MapPut("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveProductOptionCommand(productId, optionId, req.Name, req.SortOrder), ct)).ToHttpResult())
+            (await sender.Send(new SaveProductOptionCommand(productId, optionId, req.Name, req.OptionType, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
         admin.MapDelete("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, ISender sender, CancellationToken ct) =>
@@ -185,6 +186,11 @@ public static class AdminEndpoints
 
         admin.MapPost("/products/{productId:guid}/options/{optionId:guid}/values", async (Guid productId, Guid optionId, SaveOptionValueRequest req, ISender sender, CancellationToken ct) =>
             (await sender.Send(new SaveOptionValueCommand(productId, optionId, null, req.Value, req.SortOrder), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapDelete("/products/{productId:guid}/options/{optionId:guid}/values/{valueId:guid}", async (
+            Guid productId, Guid optionId, Guid valueId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteOptionValueCommand(productId, optionId, valueId), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
         admin.MapPut("/variants/{variantId:guid}", async (Guid variantId, SaveVariantRequest req, ISender sender, CancellationToken ct) =>
@@ -289,5 +295,22 @@ public static class AdminEndpoints
         drivers.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
             (await sender.Send(new DeleteDriverCommand(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DriversManage);
+    }
+
+    private static void MapUsersAdmin(RouteGroupBuilder admin)
+    {
+        var users = admin.MapGroup("/users");
+
+        users.MapGet("/", async (int page, int pageSize, string? search, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListUsersAdminQuery(page, pageSize, search), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.UsersView);
+
+        users.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetUserAdminQuery(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.UsersView);
+
+        users.MapPut("/{id:guid}", async (Guid id, UpdateUserAdminRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new UpdateUserAdminCommand(id, req.IsActive ?? true, req.RoleCodes ?? []), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.UsersManage);
     }
 }

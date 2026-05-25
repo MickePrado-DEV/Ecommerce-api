@@ -1,6 +1,7 @@
 // Pedidos del cliente: listado paginado, detalle, tracking, pago y cancelación.
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Orders;
+using Ecommerce.Application.DTOs.Orders;
 using Ecommerce.Domain.Emums;
 using Ecommerce.Domain.Orders;
 using FluentResults;
@@ -82,7 +83,7 @@ public class CancelOrderCommandHandler(
     }
 }
 
-public record PayOrderCommand(Guid UserId, Guid OrderId) : IRequest<Result<PaymentResultDto>>;
+public record PayOrderCommand(Guid UserId, Guid OrderId, PayOrderRequest? Card = null) : IRequest<Result<PaymentResultDto>>;
 
 public class PayOrderCommandHandler(IOrderRepository orders, IInventoryRepository inventory, IUnitOfWork uow)
     : IRequestHandler<PayOrderCommand, Result<PaymentResultDto>>
@@ -96,14 +97,32 @@ public class PayOrderCommandHandler(IOrderRepository orders, IInventoryRepositor
         if (order.Status is not OrderStatus.PendingPayment and not OrderStatus.PaymentFailed)
             return Result.Fail<PaymentResultDto>(OrderErrors.NotPayable());
 
+        var declined = false;
+        if (request.Card is not null)
+        {
+            order.Payment!.CardHolderName = request.Card.HolderName.Trim();
+            var digits = new string(request.Card.Number.Where(char.IsDigit).ToArray());
+            declined = digits.EndsWith("0002");
+        }
+
         await uow.BeginTransactionAsync(ct);
         try
         {
-            order.Payment!.Status = PaymentStatus.Approved;
-            order.Payment.PaidAt = DateTime.UtcNow;
-            order.Payment.ProviderReference = $"MOCK-{Guid.NewGuid():N}";
-            order.Status = OrderStatus.Paid;
-            await inventory.CommitReservationAsync(order.Id, ct);
+
+            if (declined)
+            {
+                order.Payment!.Status = PaymentStatus.Declined;
+                order.Status = OrderStatus.PaymentFailed;
+            }
+            else
+            {
+                order.Payment!.Status = PaymentStatus.Approved;
+                order.Payment.PaidAt = DateTime.UtcNow;
+                order.Payment.ProviderReference = $"MOCK-{Guid.NewGuid():N}";
+                order.Status = OrderStatus.Paid;
+                await inventory.CommitReservationAsync(order.Id, ct);
+            }
+
             await uow.CommitAsync(ct);
         }
         catch
@@ -112,6 +131,9 @@ public class PayOrderCommandHandler(IOrderRepository orders, IInventoryRepositor
             throw;
         }
 
-        return Result.Ok(new PaymentResultDto(order.Id, order.Status.ToString(), order.Payment.ProviderReference));
+        if (declined)
+            return Result.Fail<PaymentResultDto>("Pago rechazado (simulación). Prueba otro titular o tarjeta.");
+
+        return Result.Ok(new PaymentResultDto(order.Id, order.Status.ToString(), order.Payment!.ProviderReference));
     }
 }
