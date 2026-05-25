@@ -19,6 +19,7 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 | [Flujos de negocio](./06-flujos-de-negocio.md) | Checkout, pago, despacho, stock |
 | [Comparativa rutas Laravel](./07-comparativa-rutas-laravel.md) | Qué falta vs web/admin Laravel original |
 | [Evolución CQRS y dominio](./08-evolucion-cqrs-y-dominio.md) | CQRS implementado, plan de migración y mejoras futuras |
+| [Plan completitud web + mobile](./09-plan-complecion-backend-web-mobile.md) | Roadmap por fases: tienda, admin, app repartidor |
 
 ## Recursos relacionados
 
@@ -45,5 +46,6 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 |-----|-------|------------|
 | Admin | `admin@ecommerce.local` | `Admin123!` |
 | Cliente | `cliente@ecommerce.local` | `Cliente123!` |
+| Repartidor | `repartidor@ecommerce.local` | `Repartidor123!` |
 
 Producto demo: slug `audifonos-pro-x`, SKU `APX-001`, stock inicial 50.

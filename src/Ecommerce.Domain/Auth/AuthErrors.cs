@@ -17,4 +17,7 @@ public static class AuthErrors
 
     public static Error UserNotFound() =>
         new Error("Usuario no encontrado").WithMetadata("Code", NotFoundCode);
+
+    public static Error RoleNotConfigured(string roleCode) =>
+        new Error($"Rol '{roleCode}' no configurado en el sistema").WithMetadata("Code", "Validation");
 }

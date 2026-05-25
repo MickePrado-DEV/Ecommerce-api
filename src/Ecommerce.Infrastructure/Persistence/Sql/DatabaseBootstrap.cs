@@ -46,6 +46,7 @@ public static class DatabaseBootstrap
         try
         {
             await db.Users.AsNoTracking().Select(u => u.IsActive).Take(1).ToListAsync(ct);
+            await db.Drivers.AsNoTracking().Select(d => d.UserId).Take(1).ToListAsync(ct);
             return true;
         }
         catch (Exception ex) when (IsSchemaMismatch(ex))
@@ -58,6 +59,8 @@ public static class DatabaseBootstrap
         ex switch
         {
             SqlException { Number: 207 } => true,
+            _ when ex.Message.Contains("no such column", StringComparison.OrdinalIgnoreCase) => true,
+            _ when ex.Message.Contains("Invalid column name", StringComparison.OrdinalIgnoreCase) => true,
             { InnerException: not null } => IsSchemaMismatch(ex.InnerException),
             _ => false
         };

@@ -29,6 +29,7 @@ public static class ResultHttpExtensions
             "Validation" or "Address.Validation" => Results.ValidationProblem(ToValidationDictionary(result)),
             "Conflict" or "InsufficientStock" or "Auth.Conflict" => Results.Conflict(new { errors = FormatErrors(result) }),
             "Unauthorized" => Results.Unauthorized(),
+            "Forbidden" => Results.Forbid(),
             _ => Results.BadRequest(new { errors = FormatErrors(result) })
         };
     }

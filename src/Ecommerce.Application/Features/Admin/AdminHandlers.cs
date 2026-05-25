@@ -494,7 +494,7 @@ public class SaveDriverCommandHandler(IShipmentRepository shipments)
 {
     public async Task<Result<DriverDto>> Handle(SaveDriverCommand request, CancellationToken ct)
     {
-        var saved = await shipments.SaveDriverAsync(new Driver
+        var saved = await shipments.SaveDriverAsync(new Domain.Entities.Driver
         {
             Id = request.Id ?? Guid.Empty,
             Name = request.Name,

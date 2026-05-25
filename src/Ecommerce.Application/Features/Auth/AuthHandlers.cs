@@ -1,19 +1,19 @@
-// Handlers de autenticación (CQRS): login, registro, refresh, logout y perfil.
+// Handlers de autenticación: registro cliente/repartidor, login, refresh, logout, perfil.
 using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.Common;
 using Ecommerce.Application.DTOs.Auth;
 using Ecommerce.Domain.Auth;
+using Ecommerce.Domain.Authorization;
 using Ecommerce.Domain.Entities;
 using FluentResults;
 using MediatR;
 
 namespace Ecommerce.Application.Features.Auth;
 
-/// <summary>Command: validar email/password y emitir tokens.</summary>
 public record LoginCommand(string Email, string Password) : IRequest<Result<LoginResponse>>;
 
-public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt)
+public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt, IDriverRepository drivers)
     : IRequestHandler<LoginCommand, Result<LoginResponse>>
 {
     public async Task<Result<LoginResponse>> Handle(LoginCommand request, CancellationToken ct)
@@ -22,53 +22,117 @@ public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt)
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             return Result.Fail<LoginResponse>(AuthErrors.InvalidCredentials());
 
-        return Result.Ok(await BuildLoginResponseAsync(user, users, jwt, ct));
+        return Result.Ok(await BuildLoginResponseAsync(user, users, jwt, drivers, ct));
     }
 
-    /// <summary>Genera JWT, refresh token y persiste hash del refresh en BD.</summary>
     internal static async Task<LoginResponse> BuildLoginResponseAsync(
-        User user, IUserRepository users, IJwtTokenService jwt, CancellationToken ct)
+        User user, IUserRepository users, IJwtTokenService jwt, IDriverRepository drivers, CancellationToken ct)
     {
         var permissions = await users.GetPermissionsAsync(user.Id, ct);
         var access = jwt.GenerateAccessToken(user, permissions);
         var refresh = jwt.GenerateRefreshToken();
         await users.SaveRefreshTokenAsync(user.Id, refresh.Hash, refresh.ExpiresAt, ct);
-        return new LoginResponse(access, refresh.Token, ToUserDto(user), permissions);
+        var driver = await drivers.GetByUserIdAsync(user.Id, ct);
+        return new LoginResponse(access, refresh.Token, await ToUserDtoAsync(user, driver), permissions);
     }
 
-    internal static UserDto ToUserDto(User user) =>
-        new(user.Id, user.Email, user.FirstName, user.LastName, user.Roles);
+    internal static Task<UserDto> ToUserDtoAsync(User user, Domain.Entities.Driver? driver) =>
+        Task.FromResult(new UserDto(
+            user.Id, user.Email, user.FirstName, user.LastName, user.Roles,
+            driver?.Id, user.Phone));
 }
 
-/// <summary>Command: alta de usuario; devuelve tokens como en login.</summary>
-public record RegisterCommand(string Email, string Password, string FirstName, string LastName)
+public record RegisterCustomerCommand(
+    string Email, string Password, string FirstName, string LastName, string? Phone)
     : IRequest<Result<LoginResponse>>;
 
-public class RegisterCommandHandler(IUserRepository users, IJwtTokenService jwt)
-    : IRequestHandler<RegisterCommand, Result<LoginResponse>>
+public class RegisterCustomerCommandHandler(IUserRepository users, IJwtTokenService jwt, IDriverRepository drivers)
+    : IRequestHandler<RegisterCustomerCommand, Result<LoginResponse>>
 {
-    public async Task<Result<LoginResponse>> Handle(RegisterCommand request, CancellationToken ct)
+    public async Task<Result<LoginResponse>> Handle(RegisterCustomerCommand request, CancellationToken ct)
     {
         if (await users.EmailExistsAsync(request.Email, ct))
             return Result.Fail<LoginResponse>(AuthErrors.EmailAlreadyRegistered());
+
+        var roleId = await users.GetRoleIdByCodeAsync(RoleCodes.Customer, ct);
+        if (roleId is null)
+            return Result.Fail<LoginResponse>(AuthErrors.RoleNotConfigured(RoleCodes.Customer));
 
         var user = new User
         {
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             FirstName = request.FirstName,
-            LastName = request.LastName
+            LastName = request.LastName,
+            Phone = request.Phone
         };
         await users.CreateAsync(user, ct);
+        await users.AssignRoleAsync(user.Id, roleId.Value, ct);
+
         user = (await users.GetByEmailWithRolesAsync(request.Email, ct))!;
-        return Result.Ok(await LoginCommandHandler.BuildLoginResponseAsync(user, users, jwt, ct));
+        return Result.Ok(await LoginCommandHandler.BuildLoginResponseAsync(user, users, jwt, drivers, ct));
     }
 }
 
-/// <summary>Command: intercambia refresh token por par nuevo (revoca los anteriores).</summary>
+public record RegisterDriverCommand(
+    string Email, string Password, string FirstName, string LastName, string Phone,
+    string? LicenseNumber, string? VehiclePlate)
+    : IRequest<Result<LoginResponse>>;
+
+public class RegisterDriverCommandHandler(
+    IUserRepository users, IJwtTokenService jwt, IDriverRepository drivers)
+    : IRequestHandler<RegisterDriverCommand, Result<LoginResponse>>
+{
+    public async Task<Result<LoginResponse>> Handle(RegisterDriverCommand request, CancellationToken ct)
+    {
+        if (await users.EmailExistsAsync(request.Email, ct))
+            return Result.Fail<LoginResponse>(AuthErrors.EmailAlreadyRegistered());
+
+        var roleId = await users.GetRoleIdByCodeAsync(RoleCodes.Driver, ct);
+        if (roleId is null)
+            return Result.Fail<LoginResponse>(AuthErrors.RoleNotConfigured(RoleCodes.Driver));
+
+        var user = new User
+        {
+            Email = request.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Phone = request.Phone
+        };
+        await users.CreateAsync(user, ct);
+        await users.AssignRoleAsync(user.Id, roleId.Value, ct);
+
+        await drivers.CreateAsync(new Domain.Entities.Driver
+        {
+            UserId = user.Id,
+            Name = $"{request.FirstName} {request.LastName}".Trim(),
+            Phone = request.Phone,
+            LicenseNumber = request.LicenseNumber,
+            VehiclePlate = request.VehiclePlate,
+            IsActive = true
+        }, ct);
+
+        user = (await users.GetByEmailWithRolesAsync(request.Email, ct))!;
+        return Result.Ok(await LoginCommandHandler.BuildLoginResponseAsync(user, users, jwt, drivers, ct));
+    }
+}
+
+/// <summary>Alias legacy: mismo comportamiento que RegisterCustomerCommand.</summary>
+public record RegisterCommand(string Email, string Password, string FirstName, string LastName)
+    : IRequest<Result<LoginResponse>>;
+
+public class RegisterCommandHandler(IUserRepository users, IJwtTokenService jwt, IDriverRepository drivers)
+    : IRequestHandler<RegisterCommand, Result<LoginResponse>>
+{
+    public Task<Result<LoginResponse>> Handle(RegisterCommand request, CancellationToken ct) =>
+        new RegisterCustomerCommandHandler(users, jwt, drivers)
+            .Handle(new RegisterCustomerCommand(request.Email, request.Password, request.FirstName, request.LastName, null), ct);
+}
+
 public record RefreshTokenCommand(string RefreshToken) : IRequest<Result<LoginResponse>>;
 
-public class RefreshTokenCommandHandler(IUserRepository users, IJwtTokenService jwt)
+public class RefreshTokenCommandHandler(IUserRepository users, IJwtTokenService jwt, IDriverRepository drivers)
     : IRequestHandler<RefreshTokenCommand, Result<LoginResponse>>
 {
     public async Task<Result<LoginResponse>> Handle(RefreshTokenCommand request, CancellationToken ct)
@@ -79,11 +143,10 @@ public class RefreshTokenCommandHandler(IUserRepository users, IJwtTokenService 
             return Result.Fail<LoginResponse>(AuthErrors.InvalidCredentials());
 
         await users.RevokeRefreshTokensAsync(stored.UserId, ct);
-        return Result.Ok(await LoginCommandHandler.BuildLoginResponseAsync(stored.User, users, jwt, ct));
+        return Result.Ok(await LoginCommandHandler.BuildLoginResponseAsync(stored.User, users, jwt, drivers, ct));
     }
 }
 
-/// <summary>Command: invalida refresh tokens del usuario (logout).</summary>
 public record LogoutCommand(Guid UserId) : IRequest<Result>;
 
 public class LogoutCommandHandler(IUserRepository users) : IRequestHandler<LogoutCommand, Result>
@@ -95,16 +158,17 @@ public class LogoutCommandHandler(IUserRepository users) : IRequestHandler<Logou
     }
 }
 
-/// <summary>Query: perfil del usuario autenticado.</summary>
 public record GetMeQuery(Guid UserId) : IRequest<Result<UserDto>>;
 
-public class GetMeQueryHandler(IUserRepository users) : IRequestHandler<GetMeQuery, Result<UserDto>>
+public class GetMeQueryHandler(IUserRepository users, IDriverRepository drivers)
+    : IRequestHandler<GetMeQuery, Result<UserDto>>
 {
     public async Task<Result<UserDto>> Handle(GetMeQuery request, CancellationToken ct)
     {
         var user = await users.GetByIdWithRolesAsync(request.UserId, ct);
-        return user is null
-            ? Result.Fail<UserDto>(AuthErrors.UserNotFound())
-            : Result.Ok(LoginCommandHandler.ToUserDto(user));
+        if (user is null)
+            return Result.Fail<UserDto>(AuthErrors.UserNotFound());
+        var driver = await drivers.GetByUserIdAsync(user.Id, ct);
+        return Result.Ok(await LoginCommandHandler.ToUserDtoAsync(user, driver));
     }
 }

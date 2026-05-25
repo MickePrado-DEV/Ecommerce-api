@@ -21,6 +21,7 @@ namespace Ecommerce.Infrastructure.Identity
             new(ClaimTypes.GivenName, user.FirstName),
             new(ClaimTypes.Surname, user.LastName),
         };
+            claims.AddRange(user.Roles.Select(r => new Claim(ClaimTypes.Role, r)));
             claims.AddRange(permissions.Select(p => new Claim("permission", p)));
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Secret"]!));

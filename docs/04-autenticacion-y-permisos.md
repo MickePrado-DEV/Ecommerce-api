@@ -11,7 +11,9 @@
 
 | Operación | Tipo MediatR | Handler |
 |-----------|--------------|---------|
-| Register | `RegisterCommand` | `RegisterCommandHandler` |
+| Register cliente | `RegisterCustomerCommand` | `RegisterCustomerCommandHandler` |
+| Register repartidor | `RegisterDriverCommand` | `RegisterDriverCommandHandler` |
+| Register (alias) | `RegisterCommand` | Redirige a registro cliente |
 | Login | `LoginCommand` | `LoginCommandHandler` |
 | Refresh | `RefreshTokenCommand` | `RefreshTokenCommandHandler` |
 | Logout | `LogoutCommand` | `LogoutCommandHandler` |
@@ -28,14 +30,16 @@ Errores: `Domain/Auth/AuthErrors.cs`
 | `nameid` | `User.Id` |
 | `email` | Email |
 | `given_name` / `surname` | Nombre y apellido |
-| `permission` | Un claim por cada permiso del rol (repetido) |
+| `permission` | Un claim por cada permiso admin (repetido) |
+| `role` | Un claim por cada rol (`customer`, `driver`, `admin`) |
 
 ## Roles y permisos (seed)
 
 | Rol | Código | Permisos |
 |-----|--------|----------|
 | Administrador | `admin` | Todos los de `AdminPermissions.All` |
-| Cliente | `customer` | Ninguno admin |
+| Cliente | `customer` | Ninguno admin (compra en tienda) |
+| Repartidor | `driver` | Sin permisos admin; acceso a `/api/v1/driver/*` por rol |
 
 El admin recibe **21 permisos** granulares (`admin.products.manage`, `admin.orders.view`, etc.).
 

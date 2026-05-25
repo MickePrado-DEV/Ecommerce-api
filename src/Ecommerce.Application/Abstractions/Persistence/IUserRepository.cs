@@ -12,4 +12,6 @@ public interface IUserRepository
     Task RevokeRefreshTokensAsync(Guid userId, CancellationToken ct = default);
     Task<bool> EmailExistsAsync(string email, CancellationToken ct = default);
     Task<User> CreateAsync(User user, CancellationToken ct = default);
+    Task<Guid?> GetRoleIdByCodeAsync(string roleCode, CancellationToken ct = default);
+    Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken ct = default);
 }

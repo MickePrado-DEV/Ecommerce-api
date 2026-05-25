@@ -104,6 +104,7 @@ try
     api.MapCheckoutEndpoints();
     api.MapOrderEndpoints();
     api.MapAdminEndpoints();
+    api.MapDriverEndpoints();
 
     await app.RunAsync();
 }

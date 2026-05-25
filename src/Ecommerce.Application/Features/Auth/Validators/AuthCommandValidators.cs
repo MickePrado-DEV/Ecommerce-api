@@ -13,6 +13,29 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
     }
 }
 
+public class RegisterCustomerCommandValidator : AbstractValidator<RegisterCustomerCommand>
+{
+    public RegisterCustomerCommandValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Password).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
+    }
+}
+
+public class RegisterDriverCommandValidator : AbstractValidator<RegisterDriverCommand>
+{
+    public RegisterDriverCommandValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Password).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Phone).NotEmpty().MaximumLength(30);
+    }
+}
+
 public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 {
     public RegisterCommandValidator()

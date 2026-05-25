@@ -63,4 +63,17 @@ public class UserRepository(EcommerceDbContext db) : IUserRepository
         await db.SaveChangesAsync(ct);
         return user;
     }
+
+    public Task<Guid?> GetRoleIdByCodeAsync(string roleCode, CancellationToken ct = default) =>
+        db.Roles.Where(r => r.Code == roleCode).Select(r => (Guid?)r.Id).FirstOrDefaultAsync(ct);
+
+    public async Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken ct = default)
+    {
+        var exists = await db.UserRoles.AnyAsync(ur => ur.UserId == userId && ur.RoleId == roleId, ct);
+        if (!exists)
+        {
+            db.UserRoles.Add(new UserRole { UserId = userId, RoleId = roleId });
+            await db.SaveChangesAsync(ct);
+        }
+    }
 }

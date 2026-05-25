@@ -40,6 +40,37 @@ public class CriticalFlowTests(EcommerceWebApplicationFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task Register_Customer_AssignsCustomerRole()
+    {
+        var email = $"cliente-{Guid.NewGuid():N}@test.local";
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register/customer", new
+        {
+            email,
+            password = "Cliente123!",
+            firstName = "Nuevo",
+            lastName = "Cliente",
+            phone = "+5215559999"
+        });
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var roles = json.GetProperty("user").GetProperty("roles");
+        Assert.Contains(roles.EnumerateArray(), r => r.GetString() == "customer");
+    }
+
+    [Fact]
+    public async Task Login_Driver_ReturnsDriverId()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            email = "repartidor@ecommerce.local",
+            password = "Repartidor123!"
+        });
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        Assert.True(json.GetProperty("user").GetProperty("driverId").GetGuid() != Guid.Empty);
+    }
+
+    [Fact]
     public async Task Catalog_And_Cart_Checkout_Pay_Flow()
     {
         var login = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email = "cliente@ecommerce.local", password = "Cliente123!" });

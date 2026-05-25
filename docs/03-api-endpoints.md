@@ -25,7 +25,9 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| POST | `/register` | 🔓 | Registro de usuario (BCrypt) |
+| POST | `/register/customer` | 🔓 | Registro cliente (rol `customer`) |
+| POST | `/register/driver` | 🔓 | Registro repartidor (User + Driver + rol `driver`) |
+| POST | `/register` | 🔓 | Alias de `/register/customer` |
 | POST | `/login` | 🔓 | Login → `accessToken`, `refreshToken`, `user`, `permissions` |
 | POST | `/refresh` | 🔓 | Renueva tokens con refresh válido |
 | POST | `/logout` | 🔐 | Revoca refresh tokens del usuario |
@@ -246,6 +248,19 @@ Todos requieren JWT de admin con el permiso indicado.
 | POST | `/drivers` | `admin.drivers.manage` | Crear |
 | PUT | `/drivers/{id}` | `admin.drivers.manage` | Actualizar |
 | DELETE | `/drivers/{id}` | `admin.drivers.manage` | Eliminar |
+
+---
+
+## Repartidor (mobile) — `/api/v1/driver`
+
+Requiere JWT con rol `driver` (claim `role`).
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/me` | 🚚 driver | Perfil repartidor (`driverId`, licencia, placa) |
+| GET | `/shipments?page&pageSize` | 🚚 | Envíos asignados al repartidor |
+| PATCH | `/shipments/{id}/in-transit` | 🚚 | Marcar en tránsito |
+| PATCH | `/shipments/{id}/delivered` | 🚚 | Marcar entregado (sincroniza `Order` → `Delivered`) |
 
 ---
 

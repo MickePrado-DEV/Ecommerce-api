@@ -50,10 +50,28 @@ public class ShipmentRepository(EcommerceDbContext db) : IShipmentRepository
 
     public async Task UpdateStatusAsync(Guid shipmentId, ShipmentStatus status, CancellationToken ct = default)
     {
-        var shipment = await db.Shipments.FindAsync([shipmentId], ct)
+        var shipment = await db.Shipments.Include(s => s.Order)
+            .FirstOrDefaultAsync(s => s.Id == shipmentId, ct)
             ?? throw new InvalidOperationException("Envío no encontrado");
         shipment.Status = status;
-        if (status == ShipmentStatus.InTransit) shipment.ShippedAt ??= DateTime.UtcNow;
+        if (status == ShipmentStatus.InTransit)
+            shipment.ShippedAt ??= DateTime.UtcNow;
+        if (status == ShipmentStatus.Delivered && shipment.Order is not null)
+            shipment.Order.Status = OrderStatus.Delivered;
         await db.SaveChangesAsync(ct);
     }
+
+    public Task<List<Shipment>> ListByDriverIdAsync(Guid driverId, int page, int pageSize, CancellationToken ct = default) =>
+        db.Shipments.AsNoTracking()
+            .Include(s => s.Order).ThenInclude(o => o.Address)
+            .Where(s => s.DriverId == driverId)
+            .OrderByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct);
+
+    public Task<Shipment?> GetByIdForDriverAsync(Guid shipmentId, Guid driverId, CancellationToken ct = default) =>
+        db.Shipments
+            .Include(s => s.Order).ThenInclude(o => o.Address)
+            .Include(s => s.Ticket)
+            .FirstOrDefaultAsync(s => s.Id == shipmentId && s.DriverId == driverId, ct);
 }

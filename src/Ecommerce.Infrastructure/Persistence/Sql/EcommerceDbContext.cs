@@ -63,6 +63,11 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
         modelBuilder.Entity<StockMovement>().ToTable("stock_movements");
         modelBuilder.Entity<Shipment>().ToTable("shipments");
         modelBuilder.Entity<Driver>().ToTable("drivers");
+        modelBuilder.Entity<Driver>()
+            .HasOne(d => d.User)
+            .WithMany()
+            .HasForeignKey(d => d.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<DispatchTicket>().ToTable("dispatch_tickets");
         modelBuilder.Entity<Address>().ToTable("addresses");
 
