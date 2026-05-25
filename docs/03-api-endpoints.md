@@ -6,6 +6,8 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 
 > Colección Postman actualizada: `postman/Ecommerce-API.postman_collection.json`
 
+**Errores de negocio:** la API devuelve JSON con `errors` y códigos (`Validation`, `NotFound`, `Conflict`, `Unauthorized`) vía FluentResults. Ver [06-flujos-de-negocio.md](./06-flujos-de-negocio.md#5-manejo-de-errores).
+
 ---
 
 ## Sistema

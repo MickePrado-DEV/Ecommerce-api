@@ -1,6 +1,8 @@
-﻿using Ecommerce.Api.Filters;
-using Ecommerce.Application.Abstractions;
+﻿using Ecommerce.Api.Extensions;
+using Ecommerce.Api.Filters;
 using Ecommerce.Application.DTOs.Auth;
+using Ecommerce.Application.Features.Auth;
+using MediatR;
 
 namespace Ecommerce.Api.Endpoints;
 
@@ -10,38 +12,27 @@ public static class AuthEndpoints
     {
         var auth = group.MapGroup("/auth").WithTags("Auth");
 
-        auth.MapPost("/register", async (RegisterRequest req, IAuthService service, CancellationToken ct) =>
-        {
-            var result = await service.RegisterAsync(req, ct);
-            return Results.Ok(result);
-        }).WithValidation<RegisterRequest>();
+        auth.MapPost("/register", async (RegisterRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new RegisterCommand(req.Email, req.Password, req.FirstName, req.LastName), ct)).ToHttpResult());
 
-        auth.MapPost("/login", async (LoginRequest req, IAuthService service, CancellationToken ct) =>
-        {
-            var result = await service.LoginAsync(req.Email, req.Password, ct);
-            return result is null ? Results.Unauthorized() : Results.Ok(result);
-        }).WithValidation<LoginRequest>();
+        auth.MapPost("/login", async (LoginRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new LoginCommand(req.Email, req.Password), ct)).ToHttpResult());
 
-        auth.MapPost("/refresh", async (RefreshTokenRequest req, IAuthService service, CancellationToken ct) =>
-        {
-            var result = await service.RefreshAsync(req.RefreshToken, ct);
-            return result is null ? Results.Unauthorized() : Results.Ok(result);
-        }).WithValidation<RefreshTokenRequest>();
+        auth.MapPost("/refresh", async (RefreshTokenRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new RefreshTokenCommand(req.RefreshToken), ct)).ToHttpResult());
 
-        auth.MapPost("/logout", async (IAuthService service, HttpContext ctx, CancellationToken ct) =>
+        auth.MapPost("/logout", async (ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            await service.LogoutAsync(userId.Value, ct);
-            return Results.NoContent();
+            return (await sender.Send(new LogoutCommand(userId.Value), ct)).ToHttpResult();
         }).RequireAuthorization();
 
-        auth.MapGet("/me", async (IAuthService service, HttpContext ctx, CancellationToken ct) =>
+        auth.MapGet("/me", async (ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            var me = await service.GetMeAsync(userId.Value, ct);
-            return me is null ? Results.NotFound() : Results.Ok(me);
+            return (await sender.Send(new GetMeQuery(userId.Value), ct)).ToHttpResult();
         }).RequireAuthorization();
 
         return group;

@@ -1,5 +1,7 @@
-﻿using Ecommerce.Application.Abstractions;
+﻿using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Catalog;
+using Ecommerce.Application.Features.Catalog.Queries;
+using MediatR;
 
 namespace Ecommerce.Api.Endpoints;
 
@@ -9,50 +11,39 @@ public static class CatalogEndpoints
     {
         var catalog = group.MapGroup("/catalog").WithTags("Catalog");
 
-        catalog.MapGet("/home", async (int? take, ICatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetHomeAsync(take ?? 12, ct)));
+        catalog.MapGet("/home", async (int? take, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetCatalogHomeQuery(take ?? 12), ct)).ToHttpResult());
 
-        catalog.MapGet("/covers", async (ICatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetCoversAsync(ct)));
+        catalog.MapGet("/covers", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetCoversQuery(), ct)).ToHttpResult());
 
-        catalog.MapGet("/products/latest", async (int? take, ICatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetLatestProductsAsync(take ?? 12, ct)));
+        catalog.MapGet("/products/latest", async (int? take, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetLatestProductsQuery(take ?? 12), ct)).ToHttpResult());
 
-        catalog.MapGet("/families", async (ICatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetFamiliesAsync(ct)));
+        catalog.MapGet("/families", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetFamiliesQuery(), ct)).ToHttpResult());
 
-        catalog.MapGet("/families/{slug}", async (string slug, ICatalogService svc, CancellationToken ct) =>
-        {
-            var family = await svc.GetFamilyBySlugAsync(slug, ct);
-            return family is null ? Results.NotFound() : Results.Ok(family);
-        });
+        catalog.MapGet("/families/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetFamilyBySlugQuery(slug), ct)).ToHttpResult());
 
-        catalog.MapGet("/categories/{slug}", async (string slug, ICatalogService svc, CancellationToken ct) =>
-        {
-            var category = await svc.GetCategoryBySlugAsync(slug, ct);
-            return category is null ? Results.NotFound() : Results.Ok(category);
-        });
+        catalog.MapGet("/categories/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetCategoryBySlugQuery(slug), ct)).ToHttpResult());
 
-        catalog.MapGet("/subcategories/{slug}", async (string slug, ICatalogService svc, CancellationToken ct) =>
-        {
-            var sub = await svc.GetSubcategoryBySlugAsync(slug, ct);
-            return sub is null ? Results.NotFound() : Results.Ok(sub);
-        });
+        catalog.MapGet("/subcategories/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetSubcategoryBySlugQuery(slug), ct)).ToHttpResult());
 
-        catalog.MapGet("/products/{slug}", async (string slug, ICatalogService svc, CancellationToken ct) =>
-        {
-            var product = await svc.GetProductBySlugAsync(slug, ct);
-            return product is null ? Results.NotFound() : Results.Ok(product);
-        });
+        catalog.MapGet("/products/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetProductBySlugQuery(slug), ct)).ToHttpResult());
 
         catalog.MapGet("/products", async (
             int page, int pageSize, Guid? familyId, Guid? categoryId, Guid? subCategoryId,
-            string? q, string? sort, ICatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListProductsAsync(
-                new CatalogProductQuery(page, pageSize, familyId, categoryId, subCategoryId, q, sort), ct)));
+            string? q, string? sort, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductsQuery(
+                new CatalogProductQuery(page, pageSize, familyId, categoryId, subCategoryId, q, sort)), ct)).ToHttpResult());
 
-        catalog.MapGet("/search", async (string q, int page, int pageSize, ICatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListProductsAsync(new CatalogProductQuery(page, pageSize, Search: q), ct)));
+        catalog.MapGet("/search", async (string q, int page, int pageSize, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductsQuery(
+                new CatalogProductQuery(page, pageSize, Search: q)), ct)).ToHttpResult());
 
         return group;
     }

@@ -1,6 +1,8 @@
-using Ecommerce.Api.Filters;
-using Ecommerce.Application.Abstractions;
+using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Addresses;
+using Ecommerce.Application.Features.Addresses.Commands;
+using Ecommerce.Application.Features.Addresses.Queries;
+using MediatR;
 
 namespace Ecommerce.Api.Endpoints;
 
@@ -10,49 +12,48 @@ public static class AddressEndpoints
     {
         var addresses = group.MapGroup("/addresses").WithTags("Addresses").RequireAuthorization();
 
-        addresses.MapGet("/", async (IAddressService svc, HttpContext ctx, CancellationToken ct) =>
+        addresses.MapGet("/", async (ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return Results.Ok(await svc.ListAsync(userId.Value, ct));
+            return (await sender.Send(new ListAddressesQuery(userId.Value), ct)).ToHttpResult();
         });
 
-        addresses.MapGet("/{id:guid}", async (Guid id, IAddressService svc, HttpContext ctx, CancellationToken ct) =>
+        addresses.MapGet("/{id:guid}", async (Guid id, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            var address = await svc.GetAsync(userId.Value, id, ct);
-            return address is null ? Results.NotFound() : Results.Ok(address);
+            return (await sender.Send(new GetAddressQuery(userId.Value, id), ct)).ToHttpResult();
         });
 
-        addresses.MapPost("/", async (SaveAddressRequest req, IAddressService svc, HttpContext ctx, CancellationToken ct) =>
+        addresses.MapPost("/", async (SaveAddressRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return Results.Ok(await svc.SaveAsync(userId.Value, req, ct));
-        }).WithValidation<SaveAddressRequest>();
-
-        addresses.MapPut("/{id:guid}", async (Guid id, SaveAddressRequest req, IAddressService svc, HttpContext ctx, CancellationToken ct) =>
-        {
-            var userId = ctx.GetUserId();
-            if (userId is null) return Results.Unauthorized();
-            return Results.Ok(await svc.SaveAsync(userId.Value, req with { Id = id }, ct));
-        }).WithValidation<SaveAddressRequest>();
-
-        addresses.MapDelete("/{id:guid}", async (Guid id, IAddressService svc, HttpContext ctx, CancellationToken ct) =>
-        {
-            var userId = ctx.GetUserId();
-            if (userId is null) return Results.Unauthorized();
-            await svc.DeleteAsync(userId.Value, id, ct);
-            return Results.NoContent();
+            var cmd = SaveAddressCommandMapping.FromRequest(userId.Value, req);
+            return (await sender.Send(cmd, ct)).ToHttpResult();
         });
 
-        addresses.MapPatch("/{id:guid}/default", async (Guid id, IAddressService svc, HttpContext ctx, CancellationToken ct) =>
+        addresses.MapPut("/{id:guid}", async (Guid id, SaveAddressRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            await svc.SetDefaultAsync(userId.Value, id, ct);
-            return Results.NoContent();
+            var cmd = SaveAddressCommandMapping.FromRequest(userId.Value, req with { Id = id });
+            return (await sender.Send(cmd, ct)).ToHttpResult();
+        });
+
+        addresses.MapDelete("/{id:guid}", async (Guid id, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new DeleteAddressCommand(userId.Value, id), ct)).ToHttpResult();
+        });
+
+        addresses.MapPatch("/{id:guid}/default", async (Guid id, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new SetDefaultAddressCommand(userId.Value, id), ct)).ToHttpResult();
         });
 
         return group;

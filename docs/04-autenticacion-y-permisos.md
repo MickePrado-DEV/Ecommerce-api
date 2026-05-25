@@ -2,12 +2,26 @@
 
 ## Esquema JWT
 
-1. **Login** valida email/password (BCrypt).
+1. **Login** (`LoginCommand`) valida email/password con BCrypt.
 2. Se genera **access token** (JWT corto) con claims de usuario y permisos.
-3. Se genera **refresh token** (aleatorio, solo hash en BD).
+3. Se genera **refresh token** (aleatorio; solo el hash se guarda en BD).
 4. El cliente envía `Authorization: Bearer {accessToken}` en rutas protegidas.
 
-### Claims en el access token
+## Commands y queries (CQRS)
+
+| Operación | Tipo MediatR | Handler |
+|-----------|--------------|---------|
+| Register | `RegisterCommand` | `RegisterCommandHandler` |
+| Login | `LoginCommand` | `LoginCommandHandler` |
+| Refresh | `RefreshTokenCommand` | `RefreshTokenCommandHandler` |
+| Logout | `LogoutCommand` | `LogoutCommandHandler` |
+| Perfil | `GetMeQuery` | `GetMeQueryHandler` |
+
+Código: `Application/Features/Auth/AuthHandlers.cs`  
+Validación: `Application/Features/Auth/Validators/AuthCommandValidators.cs`  
+Errores: `Domain/Auth/AuthErrors.cs`
+
+## Claims en el access token
 
 | Claim | Contenido |
 |-------|-----------|
@@ -39,17 +53,29 @@ Un cliente con JWT válido pero **sin** el claim recibe **403 Forbidden**.
 
 ## Refresh token
 
-- Almacenado como **SHA-256 hash** en tabla `refresh_tokens`.
+- Almacenado como **SHA-256 hash** en tabla `refresh_tokens` (`AuthTokenHasher` en Application).
 - **Refresh:** revoca tokens previos del usuario y emite par nuevo.
-- **Logout:** marca `RevokedAt` en tokens activos del usuario.
+- **Logout:** revoca tokens activos del usuario (`RevokedAt`).
 
-## Servicios involucrados
+## Respuestas HTTP (FluentResults)
 
-| Componente | Archivo |
-|------------|---------|
-| `IAuthService` / `AuthService` | `Application/Services/AuthService.cs` |
+| Caso | Código metadata | HTTP |
+|------|-----------------|------|
+| Credenciales inválidas (login/refresh) | `Unauthorized` | 401 |
+| Email ya registrado | `Conflict` | 409 |
+| Usuario no encontrado (me) | `NotFound` | 404 |
+| Validación de command | `Validation` | 400 |
+
+Mapeo en `Api/Extensions/ResultExtensions.cs`.
+
+## Componentes técnicos
+
+| Componente | Ubicación |
+|------------|-----------|
+| Handlers auth | `Application/Features/Auth/AuthHandlers.cs` |
 | `IJwtTokenService` / `JwtTokenService` | `Infrastructure/Identity/JwtTokenService.cs` |
-| `IUserRepository` | `Infrastructure/.../UserRepository.cs` |
+| `IUserRepository` | `Infrastructure/Persistence/Sql/Repositories/UserRepository.cs` |
+| Endpoints | `Api/Endpoints/AuthEndpoints.cs` |
 
 ## Lista completa de permisos admin
 
@@ -67,4 +93,4 @@ Definidos en `Application/Authorization/AdminPermissions.cs`:
 - `admin.orders.view` / `admin.orders.manage`
 - `admin.shipments.view` / `admin.shipments.manage`
 
-> **Covers y opciones:** `admin.covers.*` → `/admin/covers`. `admin.options.*` → `/admin/products/{productId}/options` (modelo por producto, no opciones globales tipo Laravel).
+> **Covers y opciones:** `admin.covers.*` → `/admin/covers`. `admin.options.*` → `/admin/products/{productId}/options` (opciones por producto, no globales tipo Laravel).

@@ -18,7 +18,7 @@ sequenceDiagram
     API->>DB: Carrito del userId
     API-->>C: carrito actualizado
 
-    C->>API: POST /addresses (opcional, guardar dirección)
+    C->>API: POST /addresses (opcional)
     C->>API: POST /checkout { addressId o dirección inline, shippingCost }
     API->>DB: BEGIN TRANSACTION
     API->>DB: Crear Order (PendingPayment)
@@ -35,16 +35,27 @@ sequenceDiagram
     API-->>C: referencia mock de pago
 ```
 
+### Handlers involucrados
+
+| Paso | Command / Query |
+|------|-----------------|
+| Login | `LoginCommand` |
+| Catálogo | `GetProductBySlugQuery` |
+| Carrito | `AddCartItemCommand` |
+| Dirección | `SaveAddressCommand` |
+| Checkout | `CreateOrderCommand` |
+| Pago | `PayOrderCommand` |
+
 ### Reserva de stock (checkout)
 
 - Por cada línea se valida `OnHand - Reserved >= quantity`.
-- Si falla → `409 InsufficientStockException`.
+- Si falla → `Result` con código `InsufficientStock` → HTTP **409**.
 - Se crean registros en `stock_reservations` con expiración (30 min).
 - `QuantityReserved` aumenta; el stock físico no baja hasta el pago.
 
 ### Pago mock
 
-- Solo pedidos en `PendingPayment`.
+- Solo pedidos en `PendingPayment` o `PaymentFailed`.
 - En transacción: aprueba pago, pasa orden a `Paid`, ejecuta `CommitReservationAsync`.
 - `CommitReservationAsync` reduce `QuantityOnHand` y `QuantityReserved`, elimina reservas, registra movimiento `Sale`.
 
@@ -53,40 +64,55 @@ sequenceDiagram
 1. `GET /cart` o `POST /cart/items` sin JWT.
 2. Opcional: header `X-Guest-Token: {guid}` en siguientes llamadas.
 3. Si no hay token, la API genera `GuestToken` en el carrito nuevo.
-4. Tras `POST /auth/login`, `POST /cart/merge` con `{ "guestToken": "..." }` fusiona líneas al carrito del usuario.
-5. `DELETE /cart` vacía el carrito; `PATCH /cart/items/{id}` actualiza cantidad.
-6. El checkout **requiere login** (solo usuarios autenticados pagan).
+4. Tras `POST /auth/login`, `POST /cart/merge` con `{ "guestToken": "..." }` (`MergeCartCommand`).
+5. `DELETE /cart` → `ClearCartCommand`; `PATCH /cart/items/{id}` → `UpdateCartItemCommand`.
+6. El checkout **requiere login** (solo usuarios autenticados).
 
 ## 2b. Direcciones del cliente
 
-1. `POST /addresses` crea dirección (opcional `isDefault: true`).
-2. `PATCH /addresses/{id}/default` cambia la predeterminada.
-3. En checkout: `POST /checkout` con `{ "addressId": "...", "shippingCost": 99 }` en lugar de campos inline.
+1. `POST /addresses` → `SaveAddressCommand` (opcional `isDefault: true`).
+2. `PATCH /addresses/{id}/default` → `SetDefaultAddressCommand`.
+3. Checkout: `POST /checkout` con `{ "addressId": "...", "shippingCost": 99 }` o dirección inline.
 
 ## 3. Flujo admin — despacho
 
 **Precondición:** pedido en estado `Paid`.
 
-| Paso | Endpoint | Efecto |
-|------|----------|--------|
-| 1 | `POST` o `PATCH /admin/orders/{id}/ready-to-dispatch` | `Paid` → `ReadyToDispatch` |
-| 2 | `POST /admin/shipments` | Crea `Shipment` + `DispatchTicket`, orden → `Dispatched` |
-| 3 | `GET /admin/shipments/{id}/ticket.pdf` o `GET /admin/orders/{id}/ticket` | PDF con QuestPDF |
-| 4 | `PATCH /admin/shipments/{id}/in-transit` | Estado envío → `InTransit` |
-| 5 | `PATCH /admin/shipments/{id}/delivered` | Estado envío → `Delivered` |
+| Paso | Endpoint | Command / Query | Efecto |
+|------|----------|-----------------|--------|
+| 1 | `PATCH` o `POST .../ready-to-dispatch` | `MarkOrderReadyToDispatchCommand` | `Paid` → `ReadyToDispatch` |
+| 2 | `POST /admin/shipments` | `CreateShipmentCommand` | Shipment + ticket; orden → `Dispatched` |
+| 3 | `GET .../ticket.pdf` o `.../orders/{id}/ticket` | `GenerateShipmentTicketPdfQuery` / `GenerateOrderTicketPdfQuery` | PDF QuestPDF |
+| 4 | `PATCH .../in-transit` | `MarkShipmentInTransitCommand` | `InTransit` |
+| 5 | `PATCH .../delivered` | `MarkShipmentDeliveredCommand` | `Delivered` |
 
-## 4. Validación de entrada
+## 4. Validación
 
-Todos los POST/PUT con body usan `ValidationFilter<T>`:
+### Entrada (FluentValidation + MediatR)
 
-1. Postman/cliente envía JSON.
-2. FluentValidation valida el DTO (`Validators/*`).
-3. Si falla → `400` con `errors` por campo.
-4. Si pasa → el servicio ejecuta la lógica.
+1. Cliente envía JSON → endpoint construye **Command**.
+2. `ValidationBehavior` ejecuta `IValidator<TCommand>`.
+3. Si falla → `Result` con `Validation` → HTTP **400** (`ValidationProblem`).
+4. Si ok → handler.
+
+Validadores en `Application/Features/*/Validators/`.
+
+### Dominio
+
+Reglas en `Domain` (`AddressRules`, `OrderErrors`, etc.) evaluadas **dentro del handler** antes de persistir.
 
 ## 5. Manejo de errores
 
-`ExceptionMiddleware` mapea:
+### FluentResults (flujo normal)
+
+| Metadata `Code` | HTTP |
+|-----------------|------|
+| `Validation` | 400 |
+| `Unauthorized` | 401 |
+| `NotFound` | 404 |
+| `Conflict` / `InsufficientStock` | 409 |
+
+### ExceptionMiddleware (fallos excepcionales)
 
 | Excepción | HTTP |
 |-----------|------|
@@ -95,27 +121,26 @@ Todos los POST/PUT con body usan `ValidationFilter<T>`:
 | `InvalidOperationException` | 400 |
 | Otros | 500 |
 
-## 6. Servicios por caso de uso
+## 6. Handlers por área (referencia)
 
-| Servicio | Responsabilidad |
-|----------|-----------------|
-| `AuthService` | Register, login, refresh, logout, me |
-| `CatalogService` | Familias, listado, detalle público |
-| `CartService` | CRUD carrito |
-| `CheckoutService` | Checkout transaccional |
-| `OrderService` | Consulta y pago del cliente |
-| `AdminCatalogService` | CRUD catálogo |
-| `InventoryService` | Consulta y ajuste de stock |
-| `AdminOrderService` | Gestión pedidos admin |
-| `AdminShipmentService` | Envíos, conductores, PDF |
+| Módulo | Archivo principal | Responsabilidad |
+|--------|-------------------|-----------------|
+| Auth | `Features/Auth/AuthHandlers.cs` | Register, login, refresh, logout, me |
+| Catalog | `Features/Catalog/Queries/CatalogQueries.cs` | Lectura pública |
+| Cart | `Features/Cart/CartHandlers.cs` | CRUD carrito, merge |
+| Checkout | `Features/Checkout/CheckoutHandlers.cs` | Crear pedido transaccional |
+| Orders | `Features/Orders/OrderHandlers.cs` | Listado, detalle, pago cliente |
+| Addresses | `Features/Addresses/` | CRUD direcciones |
+| Admin | `Features/Admin/AdminHandlers.cs` | Dashboard, covers, catálogo, stock, pedidos, envíos, opciones |
 
 ## 7. Qué revisar en un code review
 
 | Área | Preguntas útiles |
 |------|------------------|
 | Seguridad | ¿Secret JWT en producción? ¿HTTPS? |
-| Stock | ¿Reservas expiradas se liberan? (pendiente: job de limpieza) |
+| Stock | ¿Job de limpieza de reservas expiradas? (pendiente) |
 | Transacciones | ¿Rollback en checkout/pago si falla a mitad? |
 | Permisos | ¿Cada endpoint admin tiene `.RequireAuthorization` correcto? |
-| Tests | ¿Flujos críticos cubiertos en integración? |
+| CQRS | ¿Nuevas rutas usan command/query + `Result`, no excepciones para 404/409? |
+| Tests | ¿Flujos críticos en integración? |
 | BD | ¿Migraciones EF para producción vs `EnsureCreated`? |

@@ -4,7 +4,7 @@ API REST de e-commerce en **.NET 10** con arquitectura en capas. Esta carpeta de
 
 ## ¿Empiezas en .NET?
 
-Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** — explica `Program.cs`, inyección de dependencias, Minimal APIs, middleware, `Endpoints/` y el resto del código para quien empieza en .NET.
+Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** — explica `Program.cs`, Minimal APIs, **CQRS con MediatR**, **FluentResults**, inyección de dependencias, `Features/`, validación en pipeline, middleware y flujos completos (login, compra, admin). Pensada para quien empieza en .NET.
 
 ## Índice
 
@@ -18,6 +18,7 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 | [Dominio y base de datos](./05-dominio-y-base-de-datos.md) | Entidades, relaciones, inventario |
 | [Flujos de negocio](./06-flujos-de-negocio.md) | Checkout, pago, despacho, stock |
 | [Comparativa rutas Laravel](./07-comparativa-rutas-laravel.md) | Qué falta vs web/admin Laravel original |
+| [Evolución CQRS y dominio](./08-evolucion-cqrs-y-dominio.md) | CQRS implementado, plan de migración y mejoras futuras |
 
 ## Recursos relacionados
 
@@ -34,6 +35,7 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 - **Direcciones:** CRUD del cliente; checkout con `addressId` o dirección inline.
 - **Checkout:** crea pedido, reserva stock; pago mock y reintento de pago.
 - **Admin:** dashboard stats, covers, catálogo, opciones por producto, inventario, pedidos, envíos (in-transit/delivered), PDF.
+- **Arquitectura:** CQRS (MediatR), FluentResults, handlers en `Application/Features/`.
 - **Seguridad:** JWT con permisos granulares en claims; políticas por endpoint admin.
 - **Pruebas:** colección Postman en `postman/` alineada con `03-api-endpoints.md`.
 

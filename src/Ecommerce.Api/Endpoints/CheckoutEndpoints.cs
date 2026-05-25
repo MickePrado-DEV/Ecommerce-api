@@ -1,6 +1,8 @@
-using Ecommerce.Api.Filters;
-using Ecommerce.Application.Abstractions;
+using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Checkout;
+using Ecommerce.Application.Features.Checkout;
+using Ecommerce.Application.Features.Orders;
+using MediatR;
 
 namespace Ecommerce.Api.Endpoints;
 
@@ -10,18 +12,19 @@ public static class CheckoutEndpoints
     {
         var checkout = group.MapGroup("/checkout").WithTags("Checkout").RequireAuthorization();
 
-        checkout.MapPost("/", async (CheckoutRequest req, ICheckoutService svc, HttpContext ctx, CancellationToken ct) =>
+        checkout.MapPost("/", async (CheckoutRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return Results.Ok(await svc.CheckoutAsync(userId.Value, req, ct));
-        }).WithValidation<CheckoutRequest>();
+            var cmd = CreateOrderCommandMapping.FromRequest(userId.Value, req);
+            return (await sender.Send(cmd, ct)).ToHttpResult();
+        });
 
-        checkout.MapPost("/{orderId:guid}/pay", async (Guid orderId, IOrderService svc, HttpContext ctx, CancellationToken ct) =>
+        checkout.MapPost("/{orderId:guid}/pay", async (Guid orderId, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();
             if (userId is null) return Results.Unauthorized();
-            return Results.Ok(await svc.PayMockAsync(userId.Value, orderId, ct));
+            return (await sender.Send(new PayOrderCommand(userId.Value, orderId), ct)).ToHttpResult();
         });
 
         return group;

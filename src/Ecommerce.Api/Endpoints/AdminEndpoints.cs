@@ -1,10 +1,11 @@
-using Ecommerce.Api.Filters;
-using Ecommerce.Application.Abstractions;
+using Ecommerce.Api.Extensions;
 using Ecommerce.Application.Authorization;
 using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Application.DTOs.Inventory;
 using Ecommerce.Application.DTOs.Shipments;
+using Ecommerce.Application.Features.Admin;
 using Ecommerce.Domain.Emums;
+using MediatR;
 
 namespace Ecommerce.Api.Endpoints;
 
@@ -14,12 +15,12 @@ public static class AdminEndpoints
     {
         var admin = group.MapGroup("/admin").WithTags("Admin").RequireAuthorization();
 
-        admin.MapGet("/dashboard/stats", async (IAdminDashboardService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetStatsAsync(ct)))
+        admin.MapGet("/dashboard/stats", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetDashboardStatsQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DashboardView);
 
-        admin.MapGet("/dashboard", async (IAdminDashboardService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetStatsAsync(ct)))
+        admin.MapGet("/dashboard", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetDashboardStatsQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DashboardView);
 
         MapCoversAdmin(admin);
@@ -37,186 +38,151 @@ public static class AdminEndpoints
     {
         var covers = admin.MapGroup("/covers");
 
-        covers.MapGet("/", async (IAdminCoverService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListAsync(ct)))
+        covers.MapGet("/", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListCoversAdminQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.CoversView);
 
-        covers.MapGet("/{id:guid}", async (Guid id, IAdminCoverService svc, CancellationToken ct) =>
-        {
-            var cover = await svc.GetAsync(id, ct);
-            return cover is null ? Results.NotFound() : Results.Ok(cover);
-        }).RequireAuthorization(AdminPermissions.CoversView);
+        covers.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetCoverAdminQuery(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CoversView);
 
-        covers.MapPost("/", async (SaveCoverRequest req, IAdminCoverService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.CoversManage)
-            .WithValidation<SaveCoverRequest>();
+        covers.MapPost("/", async (SaveCoverRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveCoverCommand(req.Id, req.Title, req.ImageUrl, req.LinkUrl, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CoversManage);
 
-        covers.MapPut("/{id:guid}", async (Guid id, SaveCoverRequest req, IAdminCoverService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.CoversManage)
-            .WithValidation<SaveCoverRequest>();
+        covers.MapPut("/{id:guid}", async (Guid id, SaveCoverRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveCoverCommand(id, req.Title, req.ImageUrl, req.LinkUrl, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CoversManage);
 
-        covers.MapDelete("/{id:guid}", async (Guid id, IAdminCoverService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.CoversManage);
+        covers.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteCoverCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CoversManage);
 
-        covers.MapPatch("/reorder", async (ReorderCoversRequest req, IAdminCoverService svc, CancellationToken ct) =>
-        {
-            await svc.ReorderAsync(req, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.CoversManage)
-            .WithValidation<ReorderCoversRequest>();
+        covers.MapPatch("/reorder", async (ReorderCoversRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ReorderCoversCommand(req.Ids), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CoversManage);
     }
 
     private static void MapCatalogAdmin(RouteGroupBuilder admin)
     {
         var catalog = admin.MapGroup("/catalog");
 
-        catalog.MapGet("/families", async (IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListFamiliesAsync(ct)))
+        catalog.MapGet("/families", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListFamiliesAdminQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesView);
 
-        catalog.MapPost("/families", async (SaveFamilyRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveFamilyAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.FamiliesManage)
-            .WithValidation<SaveFamilyRequest>();
+        catalog.MapPost("/families", async (SaveFamilyRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveFamilyCommand(req.Id, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.FamiliesManage);
 
-        catalog.MapPut("/families/{id:guid}", async (Guid id, SaveFamilyRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveFamilyAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.FamiliesManage)
-            .WithValidation<SaveFamilyRequest>();
+        catalog.MapPut("/families/{id:guid}", async (Guid id, SaveFamilyRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveFamilyCommand(id, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.FamiliesManage);
 
-        catalog.MapDelete("/families/{id:guid}", async (Guid id, IAdminCatalogService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteFamilyAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.FamiliesManage);
+        catalog.MapDelete("/families/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteFamilyCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.FamiliesManage);
 
-        catalog.MapPost("/categories", async (SaveCategoryRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveCategoryAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.CategoriesManage)
-            .WithValidation<SaveCategoryRequest>();
+        catalog.MapPost("/categories", async (SaveCategoryRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveCategoryCommand(req.Id, req.FamilyId, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CategoriesManage);
 
-        catalog.MapPut("/categories/{id:guid}", async (Guid id, SaveCategoryRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveCategoryAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.CategoriesManage)
-            .WithValidation<SaveCategoryRequest>();
+        catalog.MapPut("/categories/{id:guid}", async (Guid id, SaveCategoryRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveCategoryCommand(id, req.FamilyId, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CategoriesManage);
 
-        catalog.MapDelete("/categories/{id:guid}", async (Guid id, IAdminCatalogService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteCategoryAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.CategoriesManage);
+        catalog.MapDelete("/categories/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteCategoryCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CategoriesManage);
 
-        catalog.MapPost("/subcategories", async (SaveSubcategoryRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveSubcategoryAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.SubcategoriesManage)
-            .WithValidation<SaveSubcategoryRequest>();
+        catalog.MapPost("/subcategories", async (SaveSubcategoryRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveSubcategoryCommand(req.Id, req.CategoryId, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.SubcategoriesManage);
 
-        catalog.MapPut("/subcategories/{id:guid}", async (Guid id, SaveSubcategoryRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveSubcategoryAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.SubcategoriesManage)
-            .WithValidation<SaveSubcategoryRequest>();
+        catalog.MapPut("/subcategories/{id:guid}", async (Guid id, SaveSubcategoryRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveSubcategoryCommand(id, req.CategoryId, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.SubcategoriesManage);
 
-        catalog.MapDelete("/subcategories/{id:guid}", async (Guid id, IAdminCatalogService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteSubcategoryAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.SubcategoriesManage);
+        catalog.MapDelete("/subcategories/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteSubcategoryCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.SubcategoriesManage);
 
-        catalog.MapGet("/products", async (int page, int pageSize, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListProductsAsync(page, pageSize, ct)))
+        catalog.MapGet("/products", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductsAdminQuery(page, pageSize), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ProductsView);
 
-        catalog.MapPost("/products", async (SaveProductRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveProductAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.ProductsManage)
-            .WithValidation<SaveProductRequest>();
+        catalog.MapPost("/products", async (SaveProductRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveProductCommand(req.Id, req.SubcategoryId, req.Name, req.Slug, req.Description, req.BasePrice, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ProductsManage);
 
-        catalog.MapPut("/products/{id:guid}", async (Guid id, SaveProductRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveProductAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.ProductsManage)
-            .WithValidation<SaveProductRequest>();
+        catalog.MapPut("/products/{id:guid}", async (Guid id, SaveProductRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveProductCommand(id, req.SubcategoryId, req.Name, req.Slug, req.Description, req.BasePrice, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ProductsManage);
 
-        catalog.MapDelete("/products/{id:guid}", async (Guid id, IAdminCatalogService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteProductAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.ProductsManage);
+        catalog.MapDelete("/products/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteProductCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ProductsManage);
 
-        catalog.MapPost("/variants", async (SaveVariantRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveVariantAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.ProductsManage)
-            .WithValidation<SaveVariantRequest>();
+        catalog.MapPost("/variants", async (SaveVariantRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveVariantCommand(req.Id, req.ProductId, req.Sku, req.Price, req.IsActive, req.InitialStock), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ProductsManage);
 
-        catalog.MapPut("/variants/{id:guid}", async (Guid id, SaveVariantRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveVariantAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.ProductsManage)
-            .WithValidation<SaveVariantRequest>();
+        catalog.MapPut("/variants/{id:guid}", async (Guid id, SaveVariantRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveVariantCommand(id, req.ProductId, req.Sku, req.Price, req.IsActive, req.InitialStock), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ProductsManage);
 
-        catalog.MapDelete("/variants/{id:guid}", async (Guid id, IAdminCatalogService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteVariantAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.ProductsManage);
+        catalog.MapDelete("/variants/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteVariantCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ProductsManage);
     }
 
     private static void MapCatalogAliases(RouteGroupBuilder admin)
     {
-        admin.MapGet("/families", async (IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListFamiliesAsync(ct)))
+        admin.MapGet("/families", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListFamiliesAdminQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesView);
 
-        admin.MapPost("/families", async (SaveFamilyRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveFamilyAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.FamiliesManage)
-            .WithValidation<SaveFamilyRequest>();
-
-        admin.MapPut("/families/{id:guid}", async (Guid id, SaveFamilyRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveFamilyAsync(req with { Id = id }, ct)))
+        admin.MapPost("/families", async (SaveFamilyRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveFamilyCommand(req.Id, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesManage);
 
-        admin.MapDelete("/families/{id:guid}", async (Guid id, IAdminCatalogService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteFamilyAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.FamiliesManage);
+        admin.MapPut("/families/{id:guid}", async (Guid id, SaveFamilyRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveFamilyCommand(id, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.FamiliesManage);
 
-        admin.MapGet("/products", async (int page, int pageSize, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListProductsAsync(page, pageSize, ct)))
+        admin.MapDelete("/families/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteFamilyCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.FamiliesManage);
+
+        admin.MapGet("/products", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductsAdminQuery(page, pageSize), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ProductsView);
     }
 
     private static void MapProductOptionsAdmin(RouteGroupBuilder admin)
     {
-        admin.MapGet("/products/{productId:guid}/options", async (Guid productId, IAdminProductOptionService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListByProductAsync(productId, ct)))
+        admin.MapGet("/products/{productId:guid}/options", async (Guid productId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductOptionsQuery(productId), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsView);
 
-        admin.MapPost("/products/{productId:guid}/options", async (Guid productId, SaveProductOptionRequest req, IAdminProductOptionService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveOptionAsync(productId, null, req, ct)))
-            .RequireAuthorization(AdminPermissions.OptionsManage)
-            .WithValidation<SaveProductOptionRequest>();
-
-        admin.MapPut("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, SaveProductOptionRequest req, IAdminProductOptionService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveOptionAsync(productId, optionId, req, ct)))
+        admin.MapPost("/products/{productId:guid}/options", async (Guid productId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveProductOptionCommand(productId, null, req.Name, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
-        admin.MapDelete("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, IAdminProductOptionService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteOptionAsync(productId, optionId, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.OptionsManage);
-
-        admin.MapPost("/products/{productId:guid}/options/{optionId:guid}/values", async (Guid productId, Guid optionId, SaveOptionValueRequest req, IAdminProductOptionService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveValueAsync(productId, optionId, null, req, ct)))
+        admin.MapPut("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveProductOptionCommand(productId, optionId, req.Name, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
-        admin.MapPut("/variants/{variantId:guid}", async (Guid variantId, SaveVariantRequest req, IAdminCatalogService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveVariantAsync(req with { Id = variantId }, ct)))
+        admin.MapDelete("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteProductOptionCommand(productId, optionId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapPost("/products/{productId:guid}/options/{optionId:guid}/values", async (Guid productId, Guid optionId, SaveOptionValueRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveOptionValueCommand(productId, optionId, null, req.Value, req.SortOrder), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapPut("/variants/{variantId:guid}", async (Guid variantId, SaveVariantRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveVariantCommand(variantId, req.ProductId, req.Sku, req.Price, req.IsActive, req.InitialStock), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ProductsManage);
     }
 
@@ -224,113 +190,95 @@ public static class AdminEndpoints
     {
         var stock = admin.MapGroup("/inventory");
 
-        stock.MapGet("/", async (IInventoryService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListAsync(ct)))
+        stock.MapGet("/", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListInventoryQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.StockView);
 
-        stock.MapGet("/{variantId:guid}", async (Guid variantId, IInventoryService svc, CancellationToken ct) =>
+        stock.MapGet("/{variantId:guid}", async (Guid variantId, ISender sender, CancellationToken ct) =>
         {
-            var list = await svc.ListAsync(ct);
-            var item = list.FirstOrDefault(i => i.VariantId == variantId);
+            var result = await sender.Send(new ListInventoryQuery(), ct);
+            if (result.IsFailed) return result.ToHttpResult();
+            var item = result.Value.FirstOrDefault(i => i.VariantId == variantId);
             return item is null ? Results.NotFound() : Results.Ok(item);
         }).RequireAuthorization(AdminPermissions.StockView);
 
-        stock.MapPut("/{variantId:guid}", async (Guid variantId, SetInventoryRequest req, IInventoryService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SetStockAsync(variantId, req, ct)))
-            .RequireAuthorization(AdminPermissions.StockManage)
-            .WithValidation<SetInventoryRequest>();
+        stock.MapPut("/{variantId:guid}", async (Guid variantId, SetInventoryRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SetInventoryCommand(variantId, req.QuantityOnHand), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.StockManage);
 
-        stock.MapPatch("/{variantId:guid}", async (Guid variantId, SetInventoryRequest req, IInventoryService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SetStockAsync(variantId, req, ct)))
-            .RequireAuthorization(AdminPermissions.StockManage)
-            .WithValidation<SetInventoryRequest>();
+        stock.MapPatch("/{variantId:guid}", async (Guid variantId, SetInventoryRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SetInventoryCommand(variantId, req.QuantityOnHand), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.StockManage);
     }
 
     private static void MapOrdersAdmin(RouteGroupBuilder admin)
     {
         var orders = admin.MapGroup("/orders");
 
-        orders.MapGet("/", async (int page, int pageSize, string? status, IAdminOrderService svc, CancellationToken ct) =>
+        orders.MapGet("/", async (int page, int pageSize, string? status, ISender sender, CancellationToken ct) =>
         {
             OrderStatus? st = Enum.TryParse<OrderStatus>(status, true, out var parsed) ? parsed : null;
-            return Results.Ok(await svc.ListAsync(page, pageSize, st, ct));
+            return (await sender.Send(new ListAdminOrdersQuery(page, pageSize, st), ct)).ToHttpResult();
         }).RequireAuthorization(AdminPermissions.OrdersView);
 
-        orders.MapGet("/{orderId:guid}", async (Guid orderId, IAdminOrderService svc, CancellationToken ct) =>
-        {
-            var order = await svc.GetAsync(orderId, ct);
-            return order is null ? Results.NotFound() : Results.Ok(order);
-        }).RequireAuthorization(AdminPermissions.OrdersView);
+        orders.MapGet("/{orderId:guid}", async (Guid orderId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetAdminOrderQuery(orderId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OrdersView);
 
-        orders.MapGet("/{orderId:guid}/ticket", async (Guid orderId, IAdminOrderService svc, CancellationToken ct) =>
-        {
-            var pdf = await svc.GenerateTicketPdfByOrderAsync(orderId, ct);
-            return Results.File(pdf, "application/pdf", $"ticket-{orderId}.pdf");
-        }).RequireAuthorization(AdminPermissions.OrdersView);
+        orders.MapGet("/{orderId:guid}/ticket", async (Guid orderId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GenerateOrderTicketPdfQuery(orderId), ct))
+                .ToHttpResult(pdf => Results.File(pdf, "application/pdf", $"ticket-{orderId}.pdf")))
+            .RequireAuthorization(AdminPermissions.OrdersView);
 
-        orders.MapPatch("/{orderId:guid}/ready-to-dispatch", async (Guid orderId, IAdminOrderService svc, CancellationToken ct) =>
-        {
-            await svc.MarkReadyToDispatchAsync(orderId, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.OrdersManage);
+        orders.MapPatch("/{orderId:guid}/ready-to-dispatch", async (Guid orderId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new MarkOrderReadyToDispatchCommand(orderId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OrdersManage);
 
-        orders.MapPost("/{orderId:guid}/ready", async (Guid orderId, IAdminOrderService svc, CancellationToken ct) =>
-        {
-            await svc.MarkReadyToDispatchAsync(orderId, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.OrdersManage);
+        orders.MapPost("/{orderId:guid}/ready", async (Guid orderId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new MarkOrderReadyToDispatchCommand(orderId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OrdersManage);
     }
 
     private static void MapShipmentsAdmin(RouteGroupBuilder admin)
     {
         var shipments = admin.MapGroup("/shipments");
 
-        shipments.MapGet("/", async (int page, int pageSize, IAdminShipmentService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListShipmentsAsync(page, pageSize, ct)))
+        shipments.MapGet("/", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListShipmentsAdminQuery(page, pageSize), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ShipmentsView);
 
-        shipments.MapPost("/", async (CreateShipmentRequest req, IAdminShipmentService svc, CancellationToken ct) =>
-            Results.Ok(await svc.CreateShipmentAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.ShipmentsManage)
-            .WithValidation<CreateShipmentRequest>();
+        shipments.MapPost("/", async (CreateShipmentRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new CreateShipmentCommand(req.OrderId, req.DriverId, req.TrackingNumber), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ShipmentsManage);
 
-        shipments.MapGet("/{shipmentId:guid}/ticket.pdf", async (Guid shipmentId, IAdminShipmentService svc, CancellationToken ct) =>
-        {
-            var pdf = await svc.GenerateTicketPdfAsync(shipmentId, ct);
-            return Results.File(pdf, "application/pdf", $"ticket-{shipmentId}.pdf");
-        }).RequireAuthorization(AdminPermissions.ShipmentsView);
+        shipments.MapGet("/{shipmentId:guid}/ticket.pdf", async (Guid shipmentId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GenerateShipmentTicketPdfQuery(shipmentId), ct))
+                .ToHttpResult(pdf => Results.File(pdf, "application/pdf", $"ticket-{shipmentId}.pdf")))
+            .RequireAuthorization(AdminPermissions.ShipmentsView);
 
-        shipments.MapPatch("/{shipmentId:guid}/in-transit", async (Guid shipmentId, IAdminShipmentService svc, CancellationToken ct) =>
-        {
-            await svc.MarkInTransitAsync(shipmentId, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.ShipmentsManage);
+        shipments.MapPatch("/{shipmentId:guid}/in-transit", async (Guid shipmentId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new MarkShipmentInTransitCommand(shipmentId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ShipmentsManage);
 
-        shipments.MapPatch("/{shipmentId:guid}/delivered", async (Guid shipmentId, IAdminShipmentService svc, CancellationToken ct) =>
-        {
-            await svc.MarkDeliveredAsync(shipmentId, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.ShipmentsManage);
+        shipments.MapPatch("/{shipmentId:guid}/delivered", async (Guid shipmentId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new MarkShipmentDeliveredCommand(shipmentId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.ShipmentsManage);
 
         var drivers = admin.MapGroup("/drivers");
-        drivers.MapGet("/", async (IAdminShipmentService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ListDriversAsync(ct)))
+        drivers.MapGet("/", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListDriversQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DriversView);
 
-        drivers.MapPost("/", async (SaveDriverRequest req, IAdminShipmentService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveDriverAsync(req, ct)))
-            .RequireAuthorization(AdminPermissions.DriversManage)
-            .WithValidation<SaveDriverRequest>();
+        drivers.MapPost("/", async (SaveDriverRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveDriverCommand(req.Id, req.Name, req.Phone, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DriversManage);
 
-        drivers.MapPut("/{id:guid}", async (Guid id, SaveDriverRequest req, IAdminShipmentService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SaveDriverAsync(req with { Id = id }, ct)))
-            .RequireAuthorization(AdminPermissions.DriversManage)
-            .WithValidation<SaveDriverRequest>();
+        drivers.MapPut("/{id:guid}", async (Guid id, SaveDriverRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveDriverCommand(id, req.Name, req.Phone, req.IsActive), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DriversManage);
 
-        drivers.MapDelete("/{id:guid}", async (Guid id, IAdminShipmentService svc, CancellationToken ct) =>
-        {
-            await svc.DeleteDriverAsync(id, ct);
-            return Results.NoContent();
-        }).RequireAuthorization(AdminPermissions.DriversManage);
+        drivers.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteDriverCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DriversManage);
     }
 }

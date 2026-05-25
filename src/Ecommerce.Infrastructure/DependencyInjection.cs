@@ -41,16 +41,19 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
+        services.AddScoped<ICatalogReadRepository, CatalogReadRepository>();
+        services.AddScoped<IAddressReadRepository, AddressReadRepository>();
+        services.AddScoped<IAddressWriteRepository, AddressWriteRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<IOrderReadRepository, OrderReadRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IAdminCatalogRepository, AdminCatalogRepository>();
         services.AddScoped<IShipmentRepository, ShipmentRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPdfTicketGenerator, PdfTicketGenerator>();
         services.AddScoped<ICoverRepository, CoverRepository>();
-        services.AddScoped<IAddressRepository, AddressRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
         services.AddScoped<IProductOptionRepository, ProductOptionRepository>();
 

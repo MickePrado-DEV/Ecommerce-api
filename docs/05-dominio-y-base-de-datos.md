@@ -101,16 +101,34 @@ Family (familia)
 | Sqlite | `Sqlite` | Alternativa sin SQL Server |
 | MySql | — | No disponible hasta Pomelo EF10 en NuGet |
 
+## Errores y reglas de dominio (FluentResults)
+
+Además de entidades y excepciones, el dominio expone **errores tipados** para handlers:
+
+| Carpeta | Uso |
+|---------|-----|
+| `Domain/Auth/AuthErrors.cs` | Credenciales, email duplicado |
+| `Domain/Orders/OrderErrors.cs` | Pedido no encontrado, no pagable, stock |
+| `Domain/Cart/CartErrors.cs` | Carrito / ítems |
+| `Domain/Addresses/AddressErrors.cs` | Direcciones |
+| `Domain/Admin/AdminErrors.cs` | Recursos admin, estados inválidos |
+| `Domain/Addresses/AddressRules.cs` | Longitudes máximas de campos |
+
+Los handlers devuelven `Result.Fail(...)` con metadata `Code` para mapear a HTTP en la Api.
+
 ## Repositorios
 
 | Interfaz | Implementación | Responsabilidad |
 |----------|----------------|-----------------|
 | `IUserRepository` | `UserRepository` | Auth, permisos, refresh tokens |
-| `IProductRepository` | `ProductRepository` | Catálogo público por slug/listado |
-| `ICatalogRepository` | `CatalogRepository` | Árbol de familias |
+| `ICatalogReadRepository` | `CatalogReadRepository` | Lecturas públicas con proyecciones EF |
+| `IAddressReadRepository` / `IAddressWriteRepository` | `Address*Repository` | Direcciones (lectura/escritura) |
 | `ICartRepository` | `CartRepository` | Carrito guest/usuario |
-| `IOrderRepository` | `OrderRepository` | Pedidos |
+| `IOrderRepository` / `IOrderReadRepository` | `Order*Repository` | Pedidos (escritura / lectura DTO) |
 | `IInventoryRepository` | `InventoryRepository` | Reservas, commit, ajustes |
 | `IAdminCatalogRepository` | `AdminCatalogRepository` | CRUD admin catálogo |
 | `IShipmentRepository` | `ShipmentRepository` | Envíos y conductores |
+| `ICoverRepository` | `CoverRepository` | Portadas admin |
+| `IDashboardRepository` | `DashboardRepository` | Estadísticas dashboard |
+| `IProductOptionRepository` | `ProductOptionRepository` | Opciones por producto |
 | `IUnitOfWork` | `UnitOfWork` | Transacciones y `SaveChanges` |
