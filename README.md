@@ -290,4 +290,4 @@ El backend API puede consumirse ya desde cualquier cliente HTTP. El siguiente pa
 
 ## Licencia y autor
 
-Proyecto educativo / portafolio (curso Udemy .NET). Ajusta esta sección según tu repositorio.
+Proyecto educativo / portafolio (curso Udemy .NET). Creado por Miguel Angel Prado Garcia
