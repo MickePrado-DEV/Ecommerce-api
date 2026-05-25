@@ -284,7 +284,14 @@ Listado completo: [docs/03-api-endpoints.md](docs/03-api-endpoints.md)
 | Wishlist, reseñas, cupones, opciones | Push, email, upload blob de imágenes |
 | Pago mock + tests + Postman | EF Migrations para despliegue productivo |
 
-El backend API puede consumirse ya desde cualquier cliente HTTP. El siguiente paso habitual es construir el **frontend** contra `http://localhost:5088/api/v1`.
+El backend API puede consumirse ya desde cualquier cliente HTTP.
+
+### Frontend (Next.js 15 + FSD)
+
+Guía completa para crear `ecommerce-web` (tienda + admin + repartidor), con código listo para copiar y pegar:
+
+- [docs/10-frontend-nextjs-fsd-completo.md](docs/10-frontend-nextjs-fsd-completo.md)
+- [docs/INVENTARIO-FRONTEND-ARCHIVOS.md](docs/INVENTARIO-FRONTEND-ARCHIVOS.md)
 
 ---
 

@@ -20,6 +20,8 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 | [Comparativa rutas Laravel](./07-comparativa-rutas-laravel.md) | Qué falta vs web/admin Laravel original |
 | [Evolución CQRS y dominio](./08-evolucion-cqrs-y-dominio.md) | CQRS implementado, plan de migración y mejoras futuras |
 | [Plan completitud web + mobile](./09-plan-complecion-backend-web-mobile.md) | Roadmap por fases: tienda, admin, app repartidor |
+| [Frontend Next.js FSD (completo)](./10-frontend-nextjs-fsd-completo.md) | Guía copy-paste: pantallas, componentes, API cliente |
+| [Inventario archivos frontend](./INVENTARIO-FRONTEND-ARCHIVOS.md) | Listado de ~180 archivos del proyecto `ecommerce-web` |
 
 ## Recursos relacionados
 

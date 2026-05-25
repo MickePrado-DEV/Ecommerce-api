@@ -58,9 +58,11 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
         modelBuilder.Entity<VariantOptionValue>().ToTable("variant_option_values")
             .HasKey(x => new { x.VariantId, x.OptionValueId });
         modelBuilder.Entity<VariantOptionValue>()
-            .HasOne(x => x.Variant).WithMany(v => v.OptionValues).HasForeignKey(x => x.VariantId);
+            .HasOne(x => x.Variant).WithMany(v => v.OptionValues).HasForeignKey(x => x.VariantId)
+            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<VariantOptionValue>()
-            .HasOne(x => x.OptionValue).WithMany().HasForeignKey(x => x.OptionValueId);
+            .HasOne(x => x.OptionValue).WithMany().HasForeignKey(x => x.OptionValueId)
+            .OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<Variant>().ToTable("variants");
         modelBuilder.Entity<WishlistItem>().ToTable("wishlist_items");
         modelBuilder.Entity<WishlistItem>()
