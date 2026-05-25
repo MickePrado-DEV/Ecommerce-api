@@ -15,3 +15,10 @@ public record ProductReviewsPageDto(
     IReadOnlyList<ProductReviewDto> Items);
 
 public record CreateProductReviewRequest(int Rating, string? Title, string Comment);
+
+/// <summary>Elegibilidad para crear reseña (usuario autenticado).</summary>
+public record ProductReviewEligibilityDto(
+    bool CanReview,
+    bool AlreadyReviewed,
+    bool HasDeliveredPurchase,
+    string? Message);

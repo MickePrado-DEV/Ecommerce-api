@@ -34,7 +34,17 @@ public class OrderReadRepository(EcommerceDbContext db) : IOrderReadRepository
             .Include(o => o.Payment)
             .Include(o => o.Shipment!).ThenInclude(s => s.Driver)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
-        return order is null ? null : OrderMapping.ToDetail(order);
+        if (order is null) return null;
+
+        var variantIds = order.Items.Select(i => i.VariantId).Distinct().ToList();
+        var variantProducts = await (
+            from v in db.Variants.AsNoTracking()
+            join p in db.Products.AsNoTracking() on v.ProductId equals p.Id
+            where variantIds.Contains(v.Id)
+            select new { v.Id, ProductId = p.Id, p.Slug }
+        ).ToDictionaryAsync(x => x.Id, x => (x.ProductId, x.Slug), ct);
+
+        return OrderMapping.ToDetail(order, variantProducts);
     }
 
     public async Task<OrderTrackingDto?> GetTrackingForUserAsync(Guid orderId, Guid userId, CancellationToken ct = default)

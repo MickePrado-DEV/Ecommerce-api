@@ -5,10 +5,23 @@ namespace Ecommerce.Application.Features.Orders;
 
 public static class OrderMapping
 {
-    public static OrderDetailDto ToDetail(Order order) => new(
+    public static OrderItemDto MapItem(
+        OrderItem item,
+        Guid? productId = null,
+        string? productSlug = null) =>
+        new(item.ProductName, item.Sku, item.Quantity, item.UnitPrice, item.LineTotal, productId, productSlug);
+
+    public static OrderDetailDto ToDetail(
+        Order order,
+        IReadOnlyDictionary<Guid, (Guid ProductId, string Slug)>? variantProducts = null) => new(
         order.Id, order.OrderNumber, order.Status.ToString(),
         order.Subtotal, order.ShippingCost, order.Total, order.CreatedAt,
-        order.Items.Select(i => new OrderItemDto(i.ProductName, i.Sku, i.Quantity, i.UnitPrice, i.LineTotal)).ToList(),
+        order.Items.Select(i =>
+        {
+            if (variantProducts is not null && variantProducts.TryGetValue(i.VariantId, out var vp))
+                return MapItem(i, vp.ProductId, vp.Slug);
+            return MapItem(i);
+        }).ToList(),
         order.Address is null ? null : new OrderAddressDto(
             order.Address.FullName, order.Address.Street, order.Address.City,
             order.Address.State, order.Address.PostalCode, order.Address.Country, order.Address.Phone),

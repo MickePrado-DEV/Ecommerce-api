@@ -44,9 +44,9 @@ public class Phase4CatalogTests(EcommerceWebApplicationFactory factory) : IClass
         var wishlist = await _client.GetFromJsonAsync<JsonElement>("/api/v1/wishlist", JsonOptions);
         Assert.True(wishlist.GetArrayLength() >= 1);
 
-        var review = await _client.PostAsJsonAsync("/api/v1/catalog/products/audifonos-pro-x/reviews",
+        var reviewBeforeDelivery = await _client.PostAsJsonAsync("/api/v1/catalog/products/audifonos-pro-x/reviews",
             new { rating = 5, title = "Excelente", comment = "Muy buenos audífonos" });
-        review.EnsureSuccessStatusCode();
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, reviewBeforeDelivery.StatusCode);
 
         await _client.PostAsJsonAsync("/api/v1/cart/items",
             new { variantId = Guid.Parse(variantId), quantity = 1 });

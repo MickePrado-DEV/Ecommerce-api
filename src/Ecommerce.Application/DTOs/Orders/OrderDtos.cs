@@ -20,7 +20,14 @@ public record OrderDetailDto(
     OrderAddressDto? Address,
     PaymentInfoDto? Payment,
     OrderShipmentInfoDto? Shipment = null);
-public record OrderItemDto(string ProductName, string Sku, int Quantity, decimal UnitPrice, decimal LineTotal);
+public record OrderItemDto(
+    string ProductName,
+    string Sku,
+    int Quantity,
+    decimal UnitPrice,
+    decimal LineTotal,
+    Guid? ProductId = null,
+    string? ProductSlug = null);
 public record OrderAddressDto(string FullName, string Street, string City, string State, string PostalCode, string Country, string Phone);
 public record PaymentInfoDto(string Status, decimal Amount, DateTime? PaidAt);
 public record PaymentResultDto(Guid OrderId, string Status, string? Reference);

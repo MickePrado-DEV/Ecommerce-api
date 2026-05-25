@@ -162,6 +162,33 @@ public class GetProductReviewsQueryHandler(IProductReviewRepository reviews)
     }
 }
 
+public record GetProductReviewEligibilityQuery(Guid UserId, string Slug)
+    : IRequest<Result<ProductReviewEligibilityDto>>;
+
+public class GetProductReviewEligibilityQueryHandler(IProductReviewRepository reviews)
+    : IRequestHandler<GetProductReviewEligibilityQuery, Result<ProductReviewEligibilityDto>>
+{
+    public async Task<Result<ProductReviewEligibilityDto>> Handle(
+        GetProductReviewEligibilityQuery request, CancellationToken ct)
+    {
+        var product = await reviews.GetActiveProductBySlugAsync(request.Slug, ct);
+        if (product is null)
+            return Result.Fail<ProductReviewEligibilityDto>(ReviewErrors.ProductNotFound(request.Slug));
+
+        var already = await reviews.UserHasReviewedAsync(request.UserId, product.Id, ct);
+        var delivered = await reviews.UserHasDeliveredProductAsync(request.UserId, product.Id, ct);
+        var canReview = delivered && !already;
+
+        string? message = null;
+        if (already)
+            message = "Ya publicaste una reseña para este producto.";
+        else if (!delivered)
+            message = "Solo puedes reseñar después de recibir el producto (pedido entregado).";
+
+        return Result.Ok(new ProductReviewEligibilityDto(canReview, already, delivered, message));
+    }
+}
+
 public record CreateProductReviewCommand(Guid UserId, string Slug, int Rating, string? Title, string Comment)
     : IRequest<Result<ProductReviewDto>>;
 
@@ -177,6 +204,9 @@ public class CreateProductReviewCommandHandler(
 
         if (await reviews.UserHasReviewedAsync(request.UserId, product.Id, ct))
             return Result.Fail<ProductReviewDto>(ReviewErrors.AlreadyReviewed());
+
+        if (!await reviews.UserHasDeliveredProductAsync(request.UserId, product.Id, ct))
+            return Result.Fail<ProductReviewDto>(ReviewErrors.NotEligibleForReview());
 
         var user = await users.GetByIdWithRolesAsync(request.UserId, ct);
         if (user is null)

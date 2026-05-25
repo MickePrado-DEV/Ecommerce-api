@@ -9,5 +9,6 @@ public interface IProductReviewRepository
     Task<ProductReviewSummaryDto?> GetSummaryByProductIdAsync(Guid productId, CancellationToken ct = default);
     Task<Product?> GetActiveProductBySlugAsync(string slug, CancellationToken ct = default);
     Task<bool> UserHasReviewedAsync(Guid userId, Guid productId, CancellationToken ct = default);
+    Task<bool> UserHasDeliveredProductAsync(Guid userId, Guid productId, CancellationToken ct = default);
     Task AddAsync(ProductReview review, CancellationToken ct = default);
 }

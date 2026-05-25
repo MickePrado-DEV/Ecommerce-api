@@ -1,6 +1,7 @@
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Reviews;
 using Ecommerce.Domain.Entities;
+using Ecommerce.Domain.Emums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql.Repositories;
@@ -35,6 +36,12 @@ public class ProductReviewRepository(EcommerceDbContext db) : IProductReviewRepo
 
     public Task<bool> UserHasReviewedAsync(Guid userId, Guid productId, CancellationToken ct = default) =>
         db.ProductReviews.AnyAsync(r => r.UserId == userId && r.ProductId == productId, ct);
+
+    public Task<bool> UserHasDeliveredProductAsync(Guid userId, Guid productId, CancellationToken ct = default) =>
+        db.Orders.AsNoTracking()
+            .Where(o => o.UserId == userId && o.Status == OrderStatus.Delivered)
+            .AnyAsync(o => o.Items.Any(i =>
+                db.Variants.Any(v => v.Id == i.VariantId && v.ProductId == productId)), ct);
 
     public async Task AddAsync(ProductReview review, CancellationToken ct = default)
     {

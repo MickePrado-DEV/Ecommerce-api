@@ -42,6 +42,14 @@ public static class CatalogEndpoints
         catalog.MapGet("/products/{slug}/reviews", async (string slug, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetProductReviewsQuery(slug), ct)).ToHttpResult());
 
+        catalog.MapGet("/products/{slug}/reviews/eligibility", async (
+            string slug, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new GetProductReviewEligibilityQuery(userId.Value, slug), ct)).ToHttpResult();
+        }).RequireAuthorization();
+
         catalog.MapPost("/products/{slug}/reviews", async (
             string slug, CreateProductReviewRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {

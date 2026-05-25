@@ -9,4 +9,7 @@ public static class ReviewErrors
 
     public static Error AlreadyReviewed() =>
         new Error("Ya has publicado una reseña para este producto").WithMetadata("Code", "Review.AlreadyExists");
+
+    public static Error NotEligibleForReview() =>
+        new Error("Solo puedes reseñar productos de pedidos ya entregados").WithMetadata("Code", "Review.NotEligible");
 }
