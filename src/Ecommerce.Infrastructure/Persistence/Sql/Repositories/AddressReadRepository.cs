@@ -18,6 +18,9 @@ public class AddressReadRepository(EcommerceDbContext db) : IAddressReadReposito
         return list;
     }
 
+    public Task<int> CountByUserAsync(Guid userId, CancellationToken ct = default) =>
+        db.Addresses.AsNoTracking().CountAsync(a => a.UserId == userId, ct);
+
     public Task<AddressDto?> GetByIdAsync(Guid id, Guid userId, CancellationToken ct = default) =>
         db.Addresses.AsNoTracking()
             .Where(a => a.Id == id && a.UserId == userId)

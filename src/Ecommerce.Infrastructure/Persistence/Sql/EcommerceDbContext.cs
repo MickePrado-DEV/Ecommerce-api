@@ -101,6 +101,14 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
         ConfigureEnumConversions(modelBuilder);
         ConfigureDecimals(modelBuilder);
 
+        modelBuilder.Entity<Address>().Property(a => a.Latitude).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<Address>().Property(a => a.Longitude).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<Address>()
+            .HasOne(a => a.User)
+            .WithMany(u => u.Addresses)
+            .HasForeignKey(a => a.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<UserRole>()
             .HasOne(ur => ur.Role).WithMany(r => r.UserRoles).HasForeignKey(ur => ur.RoleId);
         modelBuilder.Entity<UserRole>()

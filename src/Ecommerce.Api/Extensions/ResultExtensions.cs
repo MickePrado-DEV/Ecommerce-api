@@ -1,58 +1,58 @@
 // Convierte FluentResults (Result / Result<T>) en respuestas HTTP de Minimal API.
+using Ecommerce.Api.Models;
 using FluentResults;
 
 namespace Ecommerce.Api.Extensions;
 
 public static class ResultHttpExtensions
 {
-    // Command sin valor de retorno (logout, delete) → 204 No Content si ok
     public static IResult ToHttpResult(this Result result) =>
         result.IsSuccess ? Results.NoContent() : ToErrorResult(result);
 
-    // Query/command con DTO → 200 OK + JSON si ok
     public static IResult ToHttpResult<T>(this Result<T> result) =>
         result.IsSuccess ? Results.Ok(result.Value) : ToErrorResult(result);
 
-    // Permite respuestas custom en éxito (ej. PDF con Results.File)
     public static IResult ToHttpResult<T>(this Result<T> result, Func<T, IResult> onSuccess) =>
         result.IsSuccess ? onSuccess(result.Value) : ToErrorResult(result);
 
     private static IResult ToErrorResult(IResultBase result)
     {
-        // El handler pone el código en Metadata["Code"] (Domain/*Errors)
-        var code = result.Errors.FirstOrDefault()?.Metadata.GetValueOrDefault("Code")?.ToString();
+        var items = result.Errors.Select(e => new ApiErrorItem(
+            e.Message,
+            e.Metadata.GetValueOrDefault("Code")?.ToString(),
+            e.Metadata.GetValueOrDefault("PropertyName")?.ToString())).ToList();
 
-        return code switch
-        {
-            "Address.NotFound" or "Catalog.NotFound" or "NotFound" => Results.NotFound(new { errors = FormatErrors(result) }),
-            "Order.NotFound" => Results.NotFound(new { errors = FormatErrors(result) }),
-            "Validation" or "Address.Validation" => Results.ValidationProblem(ToValidationDictionary(result)),
-            "Conflict" or "InsufficientStock" or "Auth.Conflict" => Results.Conflict(new { errors = FormatErrors(result) }),
-            "Unauthorized" => Results.Unauthorized(),
-            "Forbidden" => Results.Forbid(),
-            _ => Results.BadRequest(new { errors = FormatErrors(result) })
-        };
+        var status = MapStatusCode(items);
+        return Results.Json(new ApiErrorResponse(items), statusCode: (int)status);
     }
 
-    private static Dictionary<string, string[]> ToValidationDictionary(IResultBase result)
+    private static System.Net.HttpStatusCode MapStatusCode(IReadOnlyList<ApiErrorItem> errors)
     {
-        var dict = new Dictionary<string, string[]>();
-        foreach (var error in result.Errors)
-        {
-            var prop = error.Metadata.GetValueOrDefault("PropertyName")?.ToString() ?? "request";
-            if (!dict.ContainsKey(prop))
-                dict[prop] = [error.Message];
-            else
-                dict[prop] = dict[prop].Concat([error.Message]).ToArray();
-        }
-        return dict;
-    }
+        var codes = errors.Select(e => e.Code).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+        if (codes.Count == 0)
+            return System.Net.HttpStatusCode.BadRequest;
 
-    private static IEnumerable<object> FormatErrors(IResultBase result) =>
-        result.Errors.Select(e => new
-        {
-            message = e.Message,
-            code = e.Metadata.GetValueOrDefault("Code"),
-            propertyName = e.Metadata.GetValueOrDefault("PropertyName")
-        });
+        if (codes.Any(c => c is "NotFound" or "Address.NotFound" or "Catalog.NotFound" or "Order.NotFound"))
+            return System.Net.HttpStatusCode.NotFound;
+
+        if (codes.Any(c => c is "Unauthorized"))
+            return System.Net.HttpStatusCode.Unauthorized;
+
+        if (codes.Any(c => c is "Forbidden"))
+            return System.Net.HttpStatusCode.Forbidden;
+
+        if (codes.Any(c => c is "Conflict" or "InsufficientStock" or "Auth.Conflict"))
+            return System.Net.HttpStatusCode.Conflict;
+
+        if (codes.Any(c => c is "Validation" or "Address.Validation"))
+            return System.Net.HttpStatusCode.BadRequest;
+
+        if (codes.Any(c => c is "Database.SchemaMismatch" or "Database.Unavailable"))
+            return System.Net.HttpStatusCode.ServiceUnavailable;
+
+        if (codes.Any(c => c is "Database.Timeout"))
+            return System.Net.HttpStatusCode.GatewayTimeout;
+
+        return System.Net.HttpStatusCode.BadRequest;
+    }
 }

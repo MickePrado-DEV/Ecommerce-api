@@ -25,6 +25,7 @@ public static class DatabaseBootstrap
                 await db.Database.EnsureCreatedAsync(ct);
             }
 
+            await EnsureAddressForeignKeysAsync(db, ct);
             await DbSeeder.SeedAsync(db, ct);
             logger.LogInformation("Base de datos inicializada correctamente ({Provider})", db.Database.ProviderName);
         }
@@ -48,6 +49,11 @@ public static class DatabaseBootstrap
             await db.Users.AsNoTracking().Select(u => u.IsActive).Take(1).ToListAsync(ct);
             await db.Drivers.AsNoTracking().Select(d => d.UserId).Take(1).ToListAsync(ct);
             await db.Coupons.AsNoTracking().Select(c => c.Code).Take(1).ToListAsync(ct);
+            // Tabla addresses ampliada (Type, colonia, lat/lng, etc.)
+            await db.Addresses.AsNoTracking()
+                .Select(a => new { a.Type, a.Neighborhood, a.Latitude, a.Longitude, a.IsDefault })
+                .Take(1)
+                .ToListAsync(ct);
             return true;
         }
         catch (Exception ex) when (IsSchemaMismatch(ex))
@@ -66,6 +72,23 @@ public static class DatabaseBootstrap
             { InnerException: not null } => IsSchemaMismatch(ex.InnerException),
             _ => false
         };
+
+    /// <summary>Quita FKs legacy en addresses que no referencian users (error 547 al insertar).</summary>
+    private static async Task EnsureAddressForeignKeysAsync(EcommerceDbContext db, CancellationToken ct)
+    {
+        if (!db.Database.IsSqlServer()) return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DECLARE @sql NVARCHAR(MAX) = N'';
+            SELECT @sql += N'ALTER TABLE addresses DROP CONSTRAINT ' + QUOTENAME(fk.name) + N';'
+            FROM sys.foreign_keys fk
+            WHERE fk.parent_object_id = OBJECT_ID(N'dbo.addresses')
+              AND fk.referenced_object_id IS NOT NULL
+              AND fk.referenced_object_id <> OBJECT_ID(N'dbo.users');
+            IF LEN(@sql) > 0 EXEC sp_executesql @sql;
+            """, ct);
+    }
 
     private static string MaskConnectionString(string cs) =>
         string.Join(';', cs.Split(';', StringSplitOptions.RemoveEmptyEntries)

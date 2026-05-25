@@ -10,8 +10,8 @@ BEGIN
         Municipality NVARCHAR(120) NULL,
         References NVARCHAR(500) NULL,
         DeliveryInstructions NVARCHAR(500) NULL,
-        Latitude DECIMAL(9,6) NULL,
-        Longitude DECIMAL(9,6) NULL;
+        Latitude DECIMAL(10,7) NULL,
+        Longitude DECIMAL(10,7) NULL;
 END
 
 IF COL_LENGTH('addresses', 'IsDefault') IS NULL

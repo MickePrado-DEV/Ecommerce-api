@@ -5,6 +5,8 @@ namespace Ecommerce.Domain.Addresses;
 
 public static class AddressRules
 {
+    public const int MaxPerUser = 5;
+
     public const int LabelMaxLength = 100;
     public const int ContactNameMaxLength = 120;
     public const int StreetMaxLength = 250;
@@ -128,25 +130,25 @@ public static class AddressRules
         decimal? latitude, decimal? longitude)
     {
         if (!AllowedTypes.Contains(type))
-            return Result.Fail("Tipo de dirección inválido.");
+            return Result.Fail(AddressErrors.Validation("Tipo de dirección inválido.", "type"));
 
         if (string.IsNullOrWhiteSpace(label) || label.Length > LabelMaxLength)
             return Result.Fail(AddressErrors.LabelInvalid(LabelMaxLength));
 
         if (string.IsNullOrWhiteSpace(contactName) || contactName.Length > ContactNameMaxLength)
-            return Result.Fail("Nombre de contacto requerido.");
+            return Result.Fail(AddressErrors.Validation("Nombre de contacto requerido.", "contactName"));
 
         if (string.IsNullOrWhiteSpace(street) || street.Length > StreetMaxLength)
             return Result.Fail(AddressErrors.StreetInvalid(StreetMaxLength));
 
         if (string.IsNullOrWhiteSpace(externalNumber) || externalNumber.Length > ExternalNumberMaxLength)
-            return Result.Fail("Número exterior requerido.");
+            return Result.Fail(AddressErrors.Validation("Número exterior requerido.", "externalNumber"));
 
         if (string.IsNullOrWhiteSpace(neighborhood) || neighborhood.Length > NeighborhoodMaxLength)
-            return Result.Fail("Colonia requerida.");
+            return Result.Fail(AddressErrors.Validation("Colonia requerida.", "neighborhood"));
 
         if (string.IsNullOrWhiteSpace(municipality) || municipality.Length > MunicipalityMaxLength)
-            return Result.Fail("Municipio requerido.");
+            return Result.Fail(AddressErrors.Validation("Municipio requerido.", "municipality"));
 
         var cityVal = city ?? municipality;
         if (string.IsNullOrWhiteSpace(cityVal) || cityVal.Length > CityMaxLength)
@@ -156,7 +158,7 @@ public static class AddressRules
             return Result.Fail(AddressErrors.StateInvalid(StateMaxLength));
 
         if (string.IsNullOrWhiteSpace(postalCode) || postalCode.Length > PostalCodeMaxLength || postalCode.Length != 5 || !postalCode.All(char.IsDigit))
-            return Result.Fail("Código postal de 5 dígitos requerido.");
+            return Result.Fail(AddressErrors.Validation("Código postal de 5 dígitos requerido.", "postalCode"));
 
         if (string.IsNullOrWhiteSpace(country) || country.Length > CountryMaxLength)
             return Result.Fail(AddressErrors.CountryInvalid(CountryMaxLength));
@@ -165,13 +167,13 @@ public static class AddressRules
             return Result.Fail(AddressErrors.PhoneInvalid(PhoneMaxLength));
 
         if (references?.Length > ReferencesMaxLength)
-            return Result.Fail("Referencias demasiado largas.");
+            return Result.Fail(AddressErrors.Validation("Referencias demasiado largas.", "references"));
 
         if (deliveryInstructions?.Length > DeliveryInstructionsMaxLength)
-            return Result.Fail("Instrucciones demasiado largas.");
+            return Result.Fail(AddressErrors.Validation("Instrucciones demasiado largas.", "deliveryInstructions"));
 
         if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
-            return Result.Fail("Coordenadas inválidas.");
+            return Result.Fail(AddressErrors.Validation("Coordenadas inválidas.", "latitude"));
 
         return Result.Ok();
     }

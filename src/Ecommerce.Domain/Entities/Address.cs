@@ -23,5 +23,5 @@ public class Address : BaseEntity
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
     public bool IsDefault { get; set; }
-    public User User { get; set; } = null!;
+    public User? User { get; set; }
 }

@@ -18,6 +18,11 @@ public static class AuthErrors
     public static Error UserNotFound() =>
         new Error("Usuario no encontrado").WithMetadata("Code", NotFoundCode);
 
+    /// <summary>JWT válido pero el usuario ya no existe (p. ej. BD recreada).</summary>
+    public static Error SessionInvalid() =>
+        new Error("Tu sesión ya no es válida. Cierra sesión e inicia de nuevo.")
+            .WithMetadata("Code", UnauthorizedCode);
+
     public static Error RoleNotConfigured(string roleCode) =>
         new Error($"Rol '{roleCode}' no configurado en el sistema").WithMetadata("Code", "Validation");
 

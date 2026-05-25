@@ -29,7 +29,17 @@ public static class AddressErrors
         ValidationError($"Country es requerido y máximo {max} caracteres (ISO).", "country");
 
     public static Error PhoneInvalid(int max) =>
-        ValidationError($"Phone es requerido y máximo {max} caracteres.", "phone");
+        ValidationError($"Teléfono requerido (máximo {max} caracteres).", "phone");
+
+    public static Error Validation(string message, string propertyName = "request") =>
+        ValidationError(message, propertyName);
+
+    public static Error SaveFailed(string message) =>
+        new Error(message).WithMetadata("Code", ValidationCode);
+
+    public static Error MaxLimitReached(int max) =>
+        new Error($"Solo puedes tener hasta {max} direcciones guardadas.")
+            .WithMetadata("Code", "Conflict");
 
     private static Error ValidationError(string message, string propertyName) =>
         new Error(message)
