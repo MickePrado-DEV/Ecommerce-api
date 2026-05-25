@@ -1,3 +1,4 @@
+// Direcciones del cliente (CRUD). Todo el grupo exige JWT.
 using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Addresses;
 using Ecommerce.Application.Features.Addresses.Commands;

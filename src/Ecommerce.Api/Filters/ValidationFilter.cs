@@ -1,3 +1,4 @@
+// Filtro opcional en capa HTTP (legacy). La validación principal está en ValidationBehavior + MediatR.
 using FluentValidation;
 
 namespace Ecommerce.Api.Filters;
@@ -22,6 +23,7 @@ public class ValidationFilter<T> : IEndpointFilter where T : class
 
 public static class ValidationExtensions
 {
+    /// <summary>Añade validación FluentValidation al DTO del body antes del handler (sin MediatR).</summary>
     public static RouteHandlerBuilder WithValidation<T>(this RouteHandlerBuilder builder) where T : class =>
         builder.AddEndpointFilter<ValidationFilter<T>>();
 }

@@ -1,3 +1,4 @@
+// Reglas de entrada para commands de auth (ejecutadas por ValidationBehavior antes del handler).
 using Ecommerce.Application.Features.Auth;
 using FluentValidation;
 

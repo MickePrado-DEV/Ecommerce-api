@@ -1,3 +1,4 @@
+// Punto de entrada de la API: configura servicios (DI), pipeline HTTP y rutas Minimal API.
 using Ecommerce.Api.Endpoints;
 using Ecommerce.Api.Middleware;
 using Ecommerce.Application;
@@ -12,7 +13,10 @@ using System.Text;
 
 try
 {
+    // --- Fase 1: configuración (antes de escuchar peticiones) ---
     var builder = WebApplication.CreateBuilder(args);
+
+    // Logs estructurados: consola + archivo rotativo en /logs
     builder.Host.UseSerilog((ctx, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
         .WriteTo.Console()
@@ -21,14 +25,18 @@ try
             rollingInterval: RollingInterval.Day,
             shared: true));
 
+    // Capa Application: MediatR, FluentValidation, ValidationBehavior
     builder.Services.AddApplication();
+    // Capa Infrastructure: EF Core, repositorios, JWT, PDF
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddOpenApi();
 
+    // Permite llamadas desde el frontend (orígenes en appsettings → Cors:Origins)
     builder.Services.AddCors(o => o.AddPolicy("Web", p =>
         p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()!)
          .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
+    // Autenticación JWT: valida el Bearer token en cada petición protegida
     var jwt = builder.Configuration.GetSection("Jwt");
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(o =>
@@ -45,18 +53,23 @@ try
             };
         });
 
+    // Una política por permiso admin; los endpoints usan .RequireAuthorization(permiso)
     builder.Services.AddAuthorization(o =>
     {
         foreach (var perm in Ecommerce.Application.Authorization.AdminPermissions.All)
             o.AddPolicy(perm, p => p.RequireClaim("permission", perm));
     });
 
+    // --- Fase 2: construir app y pipeline HTTP ---
     var app = builder.Build();
 
+    // Crea tablas si no existen, corrige esquema viejo y ejecuta seed (usuarios demo)
     await DatabaseBootstrap.InitializeAsync(app.Services);
 
+    // Captura excepciones no controladas y devuelve JSON con código HTTP adecuado
     app.UseMiddleware<ExceptionMiddleware>();
 
+    // Documentación interactiva (solo fuera de producción)
     if (!app.Environment.IsProduction())
     {
         app.MapOpenApi();
@@ -67,11 +80,13 @@ try
         });
     }
 
+    // Orden del pipeline: logging → CORS → identidad (JWT) → autorización (permisos)
     app.UseSerilogRequestLogging();
     app.UseCors("Web");
     app.UseAuthentication();
     app.UseAuthorization();
 
+    // Health checks sin prefijo /api/v1
     app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
     app.MapGet("/ready", async (EcommerceDbContext db) =>
@@ -80,6 +95,7 @@ try
         return canConnect ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503);
     });
 
+    // Todas las rutas de negocio bajo /api/v1
     var api = app.MapGroup("/api/v1");
     api.MapAuthEndpoints();
     api.MapCatalogEndpoints();
@@ -100,4 +116,5 @@ finally
     await Serilog.Log.CloseAndFlushAsync();
 }
 
+// Necesario para tests de integración (WebApplicationFactory)
 public partial class Program;

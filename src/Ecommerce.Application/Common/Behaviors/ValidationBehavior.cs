@@ -1,3 +1,4 @@
+// Pipeline MediatR: ejecuta FluentValidation antes de cada handler.
 using FluentResults;
 using FluentValidation;
 using MediatR;
@@ -13,6 +14,7 @@ public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TReq
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
+        // Si no hay validador para este command/query, pasa directo al handler
         if (!validators.Any())
             return await next();
 
@@ -26,6 +28,7 @@ public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TReq
         if (failures.Count == 0)
             return await next();
 
+        // Devuelve Result.Fail con código Validation → el endpoint mapea a HTTP 400
         return ResultFactory.CreateFailure<TResponse>(failures);
     }
 }

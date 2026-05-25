@@ -1,4 +1,5 @@
-﻿using Ecommerce.Application.Abstractions;
+﻿// Registro de implementaciones técnicas: base de datos, repositorios, JWT, PDF.
+using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Infrastructure.Documents;
 using Ecommerce.Infrastructure.Identity;
@@ -15,9 +16,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
+        // Proveedor de BD desde appsettings: SqlServer o Sqlite
         var provider = Enum.Parse<DatabaseProvider>(config["Persistence:Provider"] ?? "Sqlite", true);
         var cs = config.GetConnectionString("Default")!;
 
+        // DbContext en pool: una instancia por petición HTTP (Scoped implícito con pool)
         services.AddDbContextPool<EcommerceDbContext>(o =>
         {
             switch (provider)
@@ -38,7 +41,10 @@ public static class DependencyInjection
             }
         });
 
+        // Transacciones explícitas (checkout, pago)
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Repositorios de escritura y lectura (CQRS: *ReadRepository para proyecciones)
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
         services.AddScoped<ICatalogReadRepository, CatalogReadRepository>();
@@ -51,11 +57,13 @@ public static class DependencyInjection
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IAdminCatalogRepository, AdminCatalogRepository>();
         services.AddScoped<IShipmentRepository, ShipmentRepository>();
-        services.AddScoped<IJwtTokenService, JwtTokenService>();
-        services.AddScoped<IPdfTicketGenerator, PdfTicketGenerator>();
         services.AddScoped<ICoverRepository, CoverRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
         services.AddScoped<IProductOptionRepository, ProductOptionRepository>();
+
+        // Servicios de infraestructura usados por handlers
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IPdfTicketGenerator, PdfTicketGenerator>();
 
         return services;
     }

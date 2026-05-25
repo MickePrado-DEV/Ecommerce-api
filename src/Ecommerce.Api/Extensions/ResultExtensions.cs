@@ -1,20 +1,25 @@
+// Convierte FluentResults (Result / Result<T>) en respuestas HTTP de Minimal API.
 using FluentResults;
 
 namespace Ecommerce.Api.Extensions;
 
 public static class ResultHttpExtensions
 {
+    // Command sin valor de retorno (logout, delete) → 204 No Content si ok
     public static IResult ToHttpResult(this Result result) =>
         result.IsSuccess ? Results.NoContent() : ToErrorResult(result);
 
+    // Query/command con DTO → 200 OK + JSON si ok
     public static IResult ToHttpResult<T>(this Result<T> result) =>
         result.IsSuccess ? Results.Ok(result.Value) : ToErrorResult(result);
 
+    // Permite respuestas custom en éxito (ej. PDF con Results.File)
     public static IResult ToHttpResult<T>(this Result<T> result, Func<T, IResult> onSuccess) =>
         result.IsSuccess ? onSuccess(result.Value) : ToErrorResult(result);
 
     private static IResult ToErrorResult(IResultBase result)
     {
+        // El handler pone el código en Metadata["Code"] (Domain/*Errors)
         var code = result.Errors.FirstOrDefault()?.Metadata.GetValueOrDefault("Code")?.ToString();
 
         return code switch

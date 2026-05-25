@@ -1,3 +1,4 @@
+// Middleware global: convierte excepciones en respuestas JSON (fallback si no se usó Result).
 using Ecommerce.Domain.Exceptions;
 using Microsoft.Data.SqlClient;
 using System.Net;
@@ -40,6 +41,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
     {
         if (!env.IsDevelopment()) return "Error interno del servidor";
 
+        // Ayuda cuando LocalDB tiene tablas viejas sin columnas nuevas
         if (IsSchemaMismatch(ex))
             return "Esquema de base de datos desactualizado. Detén la API, reiníciala (recreará tablas) o borra la BD 'ecommerce' en LocalDB.";
 

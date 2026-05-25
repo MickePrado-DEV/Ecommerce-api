@@ -1,3 +1,4 @@
+// Queries de catálogo público: lecturas vía ICatalogReadRepository (proyecciones EF, sin tracking).
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.Common;
 using Ecommerce.Application.DTOs.Catalog;

@@ -1,4 +1,5 @@
-﻿using Ecommerce.Api.Extensions;
+﻿// Carrito: usuario (JWT) o invitado (header X-Guest-Token). Merge requiere login.
+using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Cart;
 using Ecommerce.Application.Features.Cart;
 using MediatR;
@@ -29,6 +30,7 @@ public static class CartEndpoints
         cart.MapDelete("/", async (ISender sender, HttpContext ctx, CancellationToken ct) =>
             (await sender.Send(new ClearCartCommand(ctx.GetUserId(), ctx.GetGuestToken()), ct)).ToHttpResult());
 
+        // Tras login: fusiona carrito invitado al carrito del usuario
         cart.MapPost("/merge", async (MergeCartRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();

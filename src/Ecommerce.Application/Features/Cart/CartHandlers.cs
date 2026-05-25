@@ -1,3 +1,4 @@
+// Carrito: lectura y commands (add/update/remove/clear/merge). Soporta userId o guestToken.
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Cart;
 using Ecommerce.Domain.Cart;

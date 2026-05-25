@@ -1,3 +1,4 @@
+// Hash SHA-256 del refresh token antes de guardarlo en BD (nunca se almacena el token en claro).
 namespace Ecommerce.Application.Common;
 
 public static class AuthTokenHasher

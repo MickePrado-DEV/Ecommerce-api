@@ -1,3 +1,4 @@
+// Handlers admin: dashboard, covers, catálogo CRUD, inventario, pedidos, envíos, opciones de producto.
 using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Admin;

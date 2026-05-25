@@ -1,3 +1,4 @@
+// Checkout: CreateOrderCommand crea pedido, reserva stock y vacía carrito en transacción.
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Checkout;
 using Ecommerce.Domain.Cart;

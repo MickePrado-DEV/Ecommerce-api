@@ -619,7 +619,22 @@ Producto demo: slug `audifonos-pro-x`, SKU `APX-001`.
 
 ---
 
-## 18. Orden recomendado para leer código
+## 18. Comentarios en el código fuente
+
+Los archivos que más conviene leer tienen **comentarios en español** al inicio del archivo y en bloques clave:
+
+| Área | Archivos comentados |
+|------|---------------------|
+| Arranque | `Program.cs`, `Application/DependencyInjection.cs`, `Infrastructure/DependencyInjection.cs` |
+| HTTP | `Endpoints/*.cs`, `Extensions/ResultExtensions.cs`, `Middleware/ExceptionMiddleware.cs` |
+| CQRS | `Features/Auth/AuthHandlers.cs`, `Features/Cart/CartHandlers.cs`, `Features/Checkout/CheckoutHandlers.cs`, … |
+| Pipeline | `Common/Behaviors/ValidationBehavior.cs` |
+
+Busca líneas que empiezan con `//` o bloques `/// <summary>` en handlers.
+
+---
+
+## 19. Orden recomendado para leer código
 
 | Paso | Archivo | Por qué |
 |------|---------|---------|
@@ -638,7 +653,7 @@ Producto demo: slug `audifonos-pro-x`, SKU `APX-001`.
 
 ---
 
-## 19. Glosario ampliado
+## 20. Glosario ampliado
 
 | Término | Significado |
 |---------|-------------|
@@ -661,7 +676,7 @@ Producto demo: slug `audifonos-pro-x`, SKU `APX-001`.
 
 ---
 
-## 20. Preguntas frecuentes
+## 21. Preguntas frecuentes
 
 **¿Dónde pongo una ruta nueva?**  
 En `Endpoints/`, crea el command/query + handler en `Features/`, registra el endpoint y, si hace falta, un validador.
@@ -692,7 +707,7 @@ Pon breakpoint en el `Handle` del handler, llama la ruta desde Postman o Scalar.
 
 ---
 
-## 21. Documentación relacionada
+## 22. Documentación relacionada
 
 | Documento | Contenido |
 |-----------|-----------|

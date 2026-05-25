@@ -1,3 +1,4 @@
+// Pedidos del cliente: listado, detalle y pago (mock).
 using Ecommerce.Api.Extensions;
 using Ecommerce.Application.Features.Orders;
 using MediatR;
@@ -31,6 +32,7 @@ public static class OrderEndpoints
             return (await sender.Send(new PayOrderCommand(userId.Value, orderId), ct)).ToHttpResult();
         });
 
+        // Alias para reintentar pago en pedidos PaymentFailed
         orders.MapPost("/{orderId:guid}/retry-payment", async (Guid orderId, ISender sender, HttpContext ctx, CancellationToken ct) =>
         {
             var userId = ctx.GetUserId();

@@ -1,3 +1,4 @@
+// Errores de negocio de autenticación (usados en handlers → FluentResults → HTTP).
 using FluentResults;
 
 namespace Ecommerce.Domain.Auth;

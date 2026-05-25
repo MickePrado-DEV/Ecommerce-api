@@ -1,3 +1,4 @@
+// Pedidos del cliente: listado, detalle y pago mock (PayOrderCommand).
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Orders;
 using Ecommerce.Domain.Emums;

@@ -1,4 +1,5 @@
-﻿using Ecommerce.Api.Extensions;
+﻿// Catálogo público (solo lectura). Cada ruta envía una Query a MediatR.
+using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Catalog;
 using Ecommerce.Application.Features.Catalog.Queries;
 using MediatR;
@@ -11,6 +12,7 @@ public static class CatalogEndpoints
     {
         var catalog = group.MapGroup("/catalog").WithTags("Catalog");
 
+        // Home: portadas + productos destacados
         catalog.MapGet("/home", async (int? take, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetCatalogHomeQuery(take ?? 12), ct)).ToHttpResult());
 
@@ -32,9 +34,11 @@ public static class CatalogEndpoints
         catalog.MapGet("/subcategories/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetSubcategoryBySlugQuery(slug), ct)).ToHttpResult());
 
+        // Detalle de producto con variantes y stock disponible
         catalog.MapGet("/products/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetProductBySlugQuery(slug), ct)).ToHttpResult());
 
+        // Listado con filtros: familia, categoría, búsqueda, orden
         catalog.MapGet("/products", async (
             int page, int pageSize, Guid? familyId, Guid? categoryId, Guid? subCategoryId,
             string? q, string? sort, ISender sender, CancellationToken ct) =>

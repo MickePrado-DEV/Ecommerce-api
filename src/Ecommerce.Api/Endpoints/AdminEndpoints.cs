@@ -1,3 +1,5 @@
+// Panel admin: dashboard, covers, catálogo, inventario, pedidos, envíos, conductores, opciones.
+// Cada ruta exige JWT + permiso concreto (AdminPermissions.*).
 using Ecommerce.Api.Extensions;
 using Ecommerce.Application.Authorization;
 using Ecommerce.Application.DTOs.Admin;
@@ -34,6 +36,7 @@ public static class AdminEndpoints
         return group;
     }
 
+    // CRUD portadas del home + reordenar
     private static void MapCoversAdmin(RouteGroupBuilder admin)
     {
         var covers = admin.MapGroup("/covers");
@@ -63,6 +66,7 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.CoversManage);
     }
 
+    // CRUD familias, categorías, subcategorías, productos y variantes bajo /admin/catalog
     private static void MapCatalogAdmin(RouteGroupBuilder admin)
     {
         var catalog = admin.MapGroup("/catalog");
@@ -136,6 +140,7 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.ProductsManage);
     }
 
+    // Rutas alias /admin/families y /admin/products (compatibilidad con cliente Laravel)
     private static void MapCatalogAliases(RouteGroupBuilder admin)
     {
         admin.MapGet("/families", async (ISender sender, CancellationToken ct) =>
@@ -159,6 +164,7 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.ProductsView);
     }
 
+    // Opciones y valores por producto; PUT /admin/variants/{id} para variantes
     private static void MapProductOptionsAdmin(RouteGroupBuilder admin)
     {
         admin.MapGet("/products/{productId:guid}/options", async (Guid productId, ISender sender, CancellationToken ct) =>
@@ -186,6 +192,7 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.ProductsManage);
     }
 
+    // Consulta y ajuste de stock por variante
     private static void MapInventoryAdmin(RouteGroupBuilder admin)
     {
         var stock = admin.MapGroup("/inventory");
@@ -211,6 +218,7 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.StockManage);
     }
 
+    // Listado/detalle pedidos, marcar listo para despacho, ticket PDF por orden
     private static void MapOrdersAdmin(RouteGroupBuilder admin)
     {
         var orders = admin.MapGroup("/orders");
@@ -239,6 +247,7 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.OrdersManage);
     }
 
+    // Envíos, estados in-transit/delivered, conductores, PDF ticket
     private static void MapShipmentsAdmin(RouteGroupBuilder admin)
     {
         var shipments = admin.MapGroup("/shipments");

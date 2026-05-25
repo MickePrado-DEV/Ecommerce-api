@@ -1,3 +1,4 @@
+// Handlers de autenticación (CQRS): login, registro, refresh, logout y perfil.
 using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.Common;
@@ -9,6 +10,7 @@ using MediatR;
 
 namespace Ecommerce.Application.Features.Auth;
 
+/// <summary>Command: validar email/password y emitir tokens.</summary>
 public record LoginCommand(string Email, string Password) : IRequest<Result<LoginResponse>>;
 
 public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt)
@@ -23,6 +25,7 @@ public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt)
         return Result.Ok(await BuildLoginResponseAsync(user, users, jwt, ct));
     }
 
+    /// <summary>Genera JWT, refresh token y persiste hash del refresh en BD.</summary>
     internal static async Task<LoginResponse> BuildLoginResponseAsync(
         User user, IUserRepository users, IJwtTokenService jwt, CancellationToken ct)
     {
@@ -37,6 +40,7 @@ public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt)
         new(user.Id, user.Email, user.FirstName, user.LastName, user.Roles);
 }
 
+/// <summary>Command: alta de usuario; devuelve tokens como en login.</summary>
 public record RegisterCommand(string Email, string Password, string FirstName, string LastName)
     : IRequest<Result<LoginResponse>>;
 
@@ -61,6 +65,7 @@ public class RegisterCommandHandler(IUserRepository users, IJwtTokenService jwt)
     }
 }
 
+/// <summary>Command: intercambia refresh token por par nuevo (revoca los anteriores).</summary>
 public record RefreshTokenCommand(string RefreshToken) : IRequest<Result<LoginResponse>>;
 
 public class RefreshTokenCommandHandler(IUserRepository users, IJwtTokenService jwt)
@@ -78,6 +83,7 @@ public class RefreshTokenCommandHandler(IUserRepository users, IJwtTokenService 
     }
 }
 
+/// <summary>Command: invalida refresh tokens del usuario (logout).</summary>
 public record LogoutCommand(Guid UserId) : IRequest<Result>;
 
 public class LogoutCommandHandler(IUserRepository users) : IRequestHandler<LogoutCommand, Result>
@@ -89,6 +95,7 @@ public class LogoutCommandHandler(IUserRepository users) : IRequestHandler<Logou
     }
 }
 
+/// <summary>Query: perfil del usuario autenticado.</summary>
 public record GetMeQuery(Guid UserId) : IRequest<Result<UserDto>>;
 
 public class GetMeQueryHandler(IUserRepository users) : IRequestHandler<GetMeQuery, Result<UserDto>>

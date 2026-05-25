@@ -1,3 +1,4 @@
+// Command: crear o actualizar dirección del usuario (mapeo desde SaveAddressRequest del endpoint).
 using Ecommerce.Application.DTOs.Addresses;
 using FluentResults;
 using MediatR;
