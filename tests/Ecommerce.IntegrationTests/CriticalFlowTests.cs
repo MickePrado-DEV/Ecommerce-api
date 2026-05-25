@@ -71,6 +71,51 @@ public class CriticalFlowTests(EcommerceWebApplicationFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task Update_Profile_And_Cancel_Order()
+    {
+        var login = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email = "cliente@ecommerce.local", password = "Cliente123!" });
+        var loginBody = await login.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var token = loginBody.GetProperty("accessToken").GetString()!;
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var patch = await _client.PatchAsJsonAsync("/api/v1/auth/me", new
+        {
+            firstName = "Cliente",
+            lastName = "Actualizado",
+            phone = "+5215551111"
+        });
+        patch.EnsureSuccessStatusCode();
+        var me = await patch.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        Assert.Equal("Actualizado", me.GetProperty("lastName").GetString());
+
+        var products = await _client.GetFromJsonAsync<JsonElement>("/api/v1/catalog/products?page=1&pageSize=1", JsonOptions);
+        var slug = products.GetProperty("items")[0].GetProperty("slug").GetString()!;
+        var detail = await _client.GetFromJsonAsync<JsonElement>($"/api/v1/catalog/products/{slug}", JsonOptions);
+        var variantId = detail.GetProperty("variants")[0].GetProperty("id").GetString()!;
+
+        await _client.PostAsJsonAsync("/api/v1/cart/items", new { variantId = Guid.Parse(variantId), quantity = 1 });
+        var checkout = await _client.PostAsJsonAsync("/api/v1/checkout", new
+        {
+            fullName = "Cliente Demo",
+            street = "Calle 1",
+            city = "CDMX",
+            state = "CDMX",
+            postalCode = "01000",
+            country = "MX",
+            phone = "5551234567",
+            shippingCost = 10m
+        });
+        checkout.EnsureSuccessStatusCode();
+        var orderId = (await checkout.Content.ReadFromJsonAsync<JsonElement>(JsonOptions)).GetProperty("orderId").GetString()!;
+
+        var cancel = await _client.PostAsync($"/api/v1/orders/{orderId}/cancel", null);
+        cancel.EnsureSuccessStatusCode();
+
+        var list = await _client.GetFromJsonAsync<JsonElement>($"/api/v1/orders?status=Cancelled&page=1&pageSize=10", JsonOptions);
+        Assert.True(list.GetProperty("total").GetInt32() >= 1);
+    }
+
+    [Fact]
     public async Task Catalog_And_Cart_Checkout_Pay_Flow()
     {
         var login = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email = "cliente@ecommerce.local", password = "Cliente123!" });

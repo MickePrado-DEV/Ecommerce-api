@@ -76,4 +76,24 @@ public class UserRepository(EcommerceDbContext db) : IUserRepository
             await db.SaveChangesAsync(ct);
         }
     }
+
+    public async Task UpdateProfileAsync(Guid userId, string firstName, string lastName, string? phone, CancellationToken ct = default)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new InvalidOperationException("Usuario no encontrado");
+        user.FirstName = firstName;
+        user.LastName = lastName;
+        user.Phone = phone;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdatePasswordHashAsync(Guid userId, string passwordHash, CancellationToken ct = default)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new InvalidOperationException("Usuario no encontrado");
+        user.PasswordHash = passwordHash;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
 }

@@ -18,6 +18,8 @@
 | Refresh | `RefreshTokenCommand` | `RefreshTokenCommandHandler` |
 | Logout | `LogoutCommand` | `LogoutCommandHandler` |
 | Perfil | `GetMeQuery` | `GetMeQueryHandler` |
+| Actualizar perfil | `UpdateProfileCommand` | `UpdateProfileCommandHandler` |
+| Cambiar contraseña | `ChangePasswordCommand` | `ChangePasswordCommandHandler` |
 
 Código: `Application/Features/Auth/AuthHandlers.cs`  
 Validación: `Application/Features/Auth/Validators/AuthCommandValidators.cs`  

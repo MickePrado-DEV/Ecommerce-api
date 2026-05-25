@@ -20,4 +20,7 @@ public static class AuthErrors
 
     public static Error RoleNotConfigured(string roleCode) =>
         new Error($"Rol '{roleCode}' no configurado en el sistema").WithMetadata("Code", "Validation");
+
+    public static Error InvalidCurrentPassword() =>
+        new Error("La contraseña actual no es correcta").WithMetadata("Code", UnauthorizedCode);
 }

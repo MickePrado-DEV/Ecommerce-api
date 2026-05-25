@@ -68,6 +68,13 @@ sequenceDiagram
 5. `DELETE /cart` → `ClearCartCommand`; `PATCH /cart/items/{id}` → `UpdateCartItemCommand`.
 6. El checkout **requiere login** (solo usuarios autenticados).
 
+## 2a. Perfil y cancelación (Fase 2)
+
+1. `PATCH /auth/me` actualiza nombre y teléfono.
+2. `POST /auth/change-password` valida contraseña actual y revoca refresh tokens.
+3. `POST /orders/{id}/cancel` solo en `PendingPayment` o `PaymentFailed`: libera reserva de stock y pasa a `Cancelled`.
+4. `GET /orders/{id}/tracking` devuelve estado del pedido y envío (tracking, repartidor).
+
 ## 2b. Direcciones del cliente
 
 1. `POST /addresses` → `SaveAddressCommand` (opcional `isDefault: true`).

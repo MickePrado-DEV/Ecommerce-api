@@ -22,4 +22,7 @@ public static class OrderErrors
 
     public static Error AddressNotFound(Guid addressId) =>
         new Error($"Dirección {addressId} no encontrada").WithMetadata("Code", NotFoundCode);
+
+    public static Error NotCancellable() =>
+        new Error("Solo se pueden cancelar pedidos pendientes de pago").WithMetadata("Code", InvalidStateCode);
 }

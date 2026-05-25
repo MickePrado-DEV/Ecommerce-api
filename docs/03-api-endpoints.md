@@ -32,6 +32,8 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 | POST | `/refresh` | 🔓 | Renueva tokens con refresh válido |
 | POST | `/logout` | 🔐 | Revoca refresh tokens del usuario |
 | GET | `/me` | 🔐 | Perfil del usuario autenticado |
+| PATCH | `/me` | 🔐 | Actualizar nombre, apellido y teléfono |
+| POST | `/change-password` | 🔐 | Cambiar contraseña (revoca refresh tokens) |
 
 ### Body login / register
 
@@ -153,8 +155,10 @@ Respuesta: `orderId`, `orderNumber`, `total`, `status` (`PendingPayment`).
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/` | 🔐 | Historial de pedidos del usuario |
-| GET | `/{orderId}` | 🔐 | Detalle de un pedido propio |
+| GET | `/?page&pageSize&status` | 🔐 | Listado paginado (`items`, `total`, `page`, `pageSize`) |
+| GET | `/{orderId}` | 🔐 | Detalle (incluye `shipment` si existe) |
+| GET | `/{orderId}/tracking` | 🔐 | Solo seguimiento de envío |
+| POST | `/{orderId}/cancel` | 🔐 | Cancelar si `PendingPayment` o `PaymentFailed` |
 | POST | `/{orderId}/pay` | 🔐 | Pago mock (confirma stock, estado → `Paid`) |
 | POST | `/{orderId}/retry-payment` | 🔐 | Reintento si `PaymentFailed` / `PendingPayment` |
 

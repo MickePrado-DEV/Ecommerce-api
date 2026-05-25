@@ -24,4 +24,12 @@ public record OrderItemDto(string ProductName, string Sku, int Quantity, decimal
 public record OrderAddressDto(string FullName, string Street, string City, string State, string PostalCode, string Country, string Phone);
 public record PaymentInfoDto(string Status, decimal Amount, DateTime? PaidAt);
 public record PaymentResultDto(Guid OrderId, string Status, string? Reference);
+public record PagedOrdersDto(IReadOnlyList<OrderSummaryDto> Items, int Total, int Page, int PageSize);
+
+public record OrderTrackingDto(
+    Guid OrderId,
+    string OrderNumber,
+    string OrderStatus,
+    OrderShipmentInfoDto? Shipment);
+
 public record PagedOrdersAdminDto(IReadOnlyList<OrderSummaryDto> Items, int Total, int Page, int PageSize);

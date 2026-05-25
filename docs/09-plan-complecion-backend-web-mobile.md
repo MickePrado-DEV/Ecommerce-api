@@ -105,18 +105,29 @@ PATCH /api/v1/driver/shipments/{id}/delivered
 
 ---
 
-## Fase 2 — Perfil cliente y pedidos (web + mobile tienda)
+## Fase 2 — Perfil cliente y pedidos (web + mobile tienda) ✅
 
 **Objetivo:** Cuenta usable sin llamar solo a `/auth/me`.
 
-| # | Tarea | Prioridad |
-|---|--------|-----------|
-| 2.1 | `PATCH /auth/me` — actualizar nombre, teléfono | Alta |
-| 2.2 | `POST /auth/change-password` | Alta |
-| 2.3 | `POST /orders/{id}/cancel` (solo `PendingPayment`) | Alta |
-| 2.4 | `GET /orders/{id}/tracking` — estado envío + tracking + conductor | Media (parcial en 1.9) |
-| 2.5 | Paginación consistente en listados (`page`, `pageSize`, `total`) | Media |
-| 2.6 | `GET /orders?status=` filtro por estado | Media |
+| # | Tarea | Estado |
+|---|--------|--------|
+| 2.1 | `PATCH /auth/me` — actualizar nombre, teléfono | ✅ |
+| 2.2 | `POST /auth/change-password` (revoca refresh tokens) | ✅ |
+| 2.3 | `POST /orders/{id}/cancel` (`PendingPayment` / `PaymentFailed`) | ✅ |
+| 2.4 | `GET /orders/{id}/tracking` | ✅ |
+| 2.5 | `GET /orders?page&pageSize&total` paginado | ✅ |
+| 2.6 | `GET /orders?status=` filtro por estado | ✅ |
+| 2.7 | Detalle pedido incluye `shipment` (tracking en GET `/{id}`) | ✅ |
+
+### Rutas nuevas Fase 2
+
+```
+PATCH /api/v1/auth/me
+POST  /api/v1/auth/change-password
+GET   /api/v1/orders?page=1&pageSize=20&status=Paid
+GET   /api/v1/orders/{id}/tracking
+POST  /api/v1/orders/{id}/cancel
+```
 
 ---
 

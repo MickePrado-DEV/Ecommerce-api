@@ -1,4 +1,4 @@
-// Pedidos del cliente: listado, detalle y pago mock (PayOrderCommand).
+// Pedidos del cliente: listado paginado, detalle, tracking, pago y cancelación.
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Orders;
 using Ecommerce.Domain.Emums;
@@ -8,13 +8,18 @@ using MediatR;
 
 namespace Ecommerce.Application.Features.Orders;
 
-public record ListMyOrdersQuery(Guid UserId) : IRequest<Result<IReadOnlyList<OrderSummaryDto>>>;
+public record ListMyOrdersQuery(Guid UserId, int Page, int PageSize, string? Status)
+    : IRequest<Result<PagedOrdersDto>>;
 
 public class ListMyOrdersQueryHandler(IOrderReadRepository readRepo)
-    : IRequestHandler<ListMyOrdersQuery, Result<IReadOnlyList<OrderSummaryDto>>>
+    : IRequestHandler<ListMyOrdersQuery, Result<PagedOrdersDto>>
 {
-    public async Task<Result<IReadOnlyList<OrderSummaryDto>>> Handle(ListMyOrdersQuery request, CancellationToken ct) =>
-        Result.Ok(await readRepo.ListSummariesByUserAsync(request.UserId, ct));
+    public async Task<Result<PagedOrdersDto>> Handle(ListMyOrdersQuery request, CancellationToken ct)
+    {
+        var (items, total) = await readRepo.ListSummariesByUserAsync(
+            request.UserId, request.Page, request.PageSize, request.Status, ct);
+        return Result.Ok(new PagedOrdersDto(items, total, request.Page, request.PageSize));
+    }
 }
 
 public record GetMyOrderQuery(Guid UserId, Guid OrderId) : IRequest<Result<OrderDetailDto>>;
@@ -28,6 +33,52 @@ public class GetMyOrderQueryHandler(IOrderReadRepository readRepo)
         return order is null
             ? Result.Fail<OrderDetailDto>(OrderErrors.NotFound(request.OrderId))
             : Result.Ok(order);
+    }
+}
+
+public record GetOrderTrackingQuery(Guid UserId, Guid OrderId) : IRequest<Result<OrderTrackingDto>>;
+
+public class GetOrderTrackingQueryHandler(IOrderReadRepository readRepo)
+    : IRequestHandler<GetOrderTrackingQuery, Result<OrderTrackingDto>>
+{
+    public async Task<Result<OrderTrackingDto>> Handle(GetOrderTrackingQuery request, CancellationToken ct)
+    {
+        var tracking = await readRepo.GetTrackingForUserAsync(request.OrderId, request.UserId, ct);
+        return tracking is null
+            ? Result.Fail<OrderTrackingDto>(OrderErrors.NotFound(request.OrderId))
+            : Result.Ok(tracking);
+    }
+}
+
+public record CancelOrderCommand(Guid UserId, Guid OrderId) : IRequest<Result>;
+
+public class CancelOrderCommandHandler(
+    IOrderRepository orders, IInventoryRepository inventory, IUnitOfWork uow)
+    : IRequestHandler<CancelOrderCommand, Result>
+{
+    public async Task<Result> Handle(CancelOrderCommand request, CancellationToken ct)
+    {
+        var order = await orders.GetByIdForUserAsync(request.OrderId, request.UserId, ct);
+        if (order is null)
+            return Result.Fail(OrderErrors.NotFound(request.OrderId));
+
+        if (order.Status is not OrderStatus.PendingPayment and not OrderStatus.PaymentFailed)
+            return Result.Fail(OrderErrors.NotCancellable());
+
+        await uow.BeginTransactionAsync(ct);
+        try
+        {
+            await inventory.ReleaseReservationAsync(order.Id, ct);
+            order.Status = OrderStatus.Cancelled;
+            await uow.CommitAsync(ct);
+        }
+        catch
+        {
+            await uow.RollbackAsync(ct);
+            throw;
+        }
+
+        return Result.Ok();
     }
 }
 

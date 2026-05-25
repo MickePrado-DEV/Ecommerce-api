@@ -47,6 +47,20 @@ public static class AuthEndpoints
             return (await sender.Send(new GetMeQuery(userId.Value), ct)).ToHttpResult();
         }).RequireAuthorization();
 
+        auth.MapPatch("/me", async (UpdateProfileRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new UpdateProfileCommand(userId.Value, req.FirstName, req.LastName, req.Phone), ct)).ToHttpResult();
+        }).RequireAuthorization();
+
+        auth.MapPost("/change-password", async (ChangePasswordRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new ChangePasswordCommand(userId.Value, req.CurrentPassword, req.NewPassword), ct)).ToHttpResult();
+        }).RequireAuthorization();
+
         return group;
     }
 }

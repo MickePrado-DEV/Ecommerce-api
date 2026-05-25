@@ -14,4 +14,6 @@ public interface IUserRepository
     Task<User> CreateAsync(User user, CancellationToken ct = default);
     Task<Guid?> GetRoleIdByCodeAsync(string roleCode, CancellationToken ct = default);
     Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken ct = default);
+    Task UpdateProfileAsync(Guid userId, string firstName, string lastName, string? phone, CancellationToken ct = default);
+    Task UpdatePasswordHashAsync(Guid userId, string passwordHash, CancellationToken ct = default);
 }
