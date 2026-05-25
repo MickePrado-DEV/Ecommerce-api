@@ -4,5 +4,16 @@ public record FamilyDto(Guid Id, string Name, string Slug, IReadOnlyList<Categor
 public record CategoryDto(Guid Id, string Name, string Slug, IReadOnlyList<SubcategoryDto> Subcategories);
 public record SubcategoryDto(Guid Id, string Name, string Slug);
 public record ProductListItemDto(Guid Id, string Name, string Slug, decimal Price, string? PrimaryImage);
-public record ProductDetailDto(Guid Id, string Name, string Slug, string? Description, decimal BasePrice, IReadOnlyList<ProductVariantDto> Variants, IReadOnlyList<string> Images);
-public record ProductVariantDto(Guid Id, string Sku, decimal Price, int Available);
+public record CatalogOptionDto(Guid Id, string Name, int SortOrder, IReadOnlyList<CatalogOptionValueDto> Values);
+public record CatalogOptionValueDto(Guid Id, string Value, int SortOrder);
+public record ProductDetailDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string? Description,
+    decimal BasePrice,
+    IReadOnlyList<CatalogOptionDto> Options,
+    IReadOnlyList<ProductVariantDto> Variants,
+    IReadOnlyList<string> Images);
+public record ProductVariantDto(Guid Id, string Sku, decimal Price, int Available, IReadOnlyList<Guid> OptionValueIds);
+public record ResolvedVariantDto(Guid VariantId, string Sku, decimal Price, int Available, IReadOnlyList<Guid> OptionValueIds);

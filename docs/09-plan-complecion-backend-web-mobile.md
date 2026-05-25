@@ -131,31 +131,46 @@ POST  /api/v1/orders/{id}/cancel
 
 ---
 
-## Fase 3 — Pagos reales y webhooks
+## Fase 3 — Pagos reales y webhooks ⏸️ (mock permanente)
 
-**Objetivo:** Sustituir pago mock (Niubiz / Stripe / Mercado Pago según mercado).
+**Decisión:** Se mantiene el pago simulado (`POST /orders/{id}/pay` → referencia `MOCK-{guid}`). No se implementa pasarela real en este curso.
 
-| # | Tarea |
-|---|--------|
-| 3.1 | `IPaymentGateway` + implementación mock/real |
-| 3.2 | `POST /checkout` devuelve `paymentIntent` o URL |
-| 3.3 | Webhook `POST /webhooks/payments/{provider}` |
-| 3.4 | Idempotencia y reconciliación con `Order` / `Payment` |
-| 3.5 | Reintento y `PaymentFailed` documentado |
+| # | Tarea | Estado |
+|---|--------|--------|
+| 3.1 | `IPaymentGateway` + implementación mock/real | ⏸️ mock |
+| 3.2 | `POST /checkout` devuelve `paymentIntent` o URL | ⏸️ |
+| 3.3 | Webhook `POST /webhooks/payments/{provider}` | ⏸️ |
+| 3.4 | Idempotencia y reconciliación | ⏸️ |
+| 3.5 | Reintento y `PaymentFailed` documentado | ⏸️ |
 
 ---
 
-## Fase 4 — Catálogo enriquecido (conversión)
+## Fase 4 — Catálogo enriquecido (conversión) ✅
 
-| # | Tarea | Web/mobile |
-|---|--------|------------|
-| 4.1 | Opciones de producto en `GET /catalog/products/{slug}` | Ficha producto |
-| 4.2 | Variante ↔ combinación de opciones | Selector talla/color |
-| 4.3 | `featureIds` / filtros avanzados | Listados |
-| 4.4 | Wishlist (`/wishlist`) | Guardar favoritos |
-| 4.5 | Reseñas (`/products/{id}/reviews`) | Social proof |
-| 4.6 | Cupones (`POST /checkout` con `couponCode`) | Promos |
-| 4.7 | Upload imágenes (blob + URL) | Admin |
+| # | Tarea | Web/mobile | Estado |
+|---|--------|------------|--------|
+| 4.1 | Opciones en `GET /catalog/products/{slug}` | Ficha producto | ✅ |
+| 4.2 | `POST /catalog/products/{slug}/resolve-variant` | Selector talla/color | ✅ |
+| 4.3 | `optionValueIds` en listados | Filtros | ✅ |
+| 4.4 | Wishlist (`/wishlist`) | Favoritos | ✅ |
+| 4.5 | Reseñas (`/catalog/products/{slug}/reviews`) | Social proof | ✅ |
+| 4.6 | Cupones (`couponCode` en checkout) | Promos | ✅ |
+| 4.7 | Upload imágenes (blob + URL) | Admin | Pendiente |
+
+### Rutas nuevas Fase 4
+
+```
+GET    /api/v1/catalog/products?optionValueIds={guid},{guid}
+POST   /api/v1/catalog/products/{slug}/resolve-variant
+GET    /api/v1/catalog/products/{slug}/reviews
+POST   /api/v1/catalog/products/{slug}/reviews
+GET    /api/v1/wishlist
+POST   /api/v1/wishlist/{productId}
+DELETE /api/v1/wishlist/{productId}
+POST   /api/v1/checkout  (body: couponCode opcional)
+```
+
+Cupón demo en seed: `WELCOME10` (10 %, mínimo subtotal 50).
 
 ---
 
@@ -252,3 +267,4 @@ POST  /api/v1/orders/{id}/cancel
 | Fecha | Cambio |
 |-------|--------|
 | 2026-05 | Creación del plan; inicio Fase 1 (registro customer/driver + API driver) |
+| 2026-05 | Fase 3 marcada como mock permanente; Fase 4 implementada (opciones, wishlist, reseñas, cupones) |

@@ -1,6 +1,7 @@
 ﻿// Catálogo público (solo lectura). Cada ruta envía una Query a MediatR.
 using Ecommerce.Api.Extensions;
 using Ecommerce.Application.DTOs.Catalog;
+using Ecommerce.Application.DTOs.Reviews;
 using Ecommerce.Application.Features.Catalog.Queries;
 using MediatR;
 
@@ -34,16 +35,34 @@ public static class CatalogEndpoints
         catalog.MapGet("/subcategories/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetSubcategoryBySlugQuery(slug), ct)).ToHttpResult());
 
-        // Detalle de producto con variantes y stock disponible
+        // Detalle de producto con variantes, opciones y stock disponible
         catalog.MapGet("/products/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetProductBySlugQuery(slug), ct)).ToHttpResult());
 
-        // Listado con filtros: familia, categoría, búsqueda, orden
+        catalog.MapGet("/products/{slug}/reviews", async (string slug, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetProductReviewsQuery(slug), ct)).ToHttpResult());
+
+        catalog.MapPost("/products/{slug}/reviews", async (
+            string slug, CreateProductReviewRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new CreateProductReviewCommand(
+                userId.Value, slug, req.Rating, req.Title, req.Comment), ct)).ToHttpResult();
+        }).RequireAuthorization();
+
+        catalog.MapPost("/products/{slug}/resolve-variant", async (
+            string slug, ResolveVariantRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ResolveProductVariantQuery(slug, req.OptionValueIds), ct)).ToHttpResult());
+
+        // Listado con filtros: familia, categoría, búsqueda, orden, optionValueIds
         catalog.MapGet("/products", async (
             int page, int pageSize, Guid? familyId, Guid? categoryId, Guid? subCategoryId,
-            string? q, string? sort, ISender sender, CancellationToken ct) =>
+            string? q, string? sort, string? optionValueIds, ISender sender, CancellationToken ct) =>
             (await sender.Send(new ListProductsQuery(
-                new CatalogProductQuery(page, pageSize, familyId, categoryId, subCategoryId, q, sort)), ct)).ToHttpResult());
+                new CatalogProductQuery(
+                    page, pageSize, familyId, categoryId, subCategoryId, q, sort,
+                    ParseGuidList(optionValueIds))), ct)).ToHttpResult());
 
         catalog.MapGet("/search", async (string q, int page, int pageSize, ISender sender, CancellationToken ct) =>
             (await sender.Send(new ListProductsQuery(
@@ -51,4 +70,18 @@ public static class CatalogEndpoints
 
         return group;
     }
+
+    private static IReadOnlyList<Guid>? ParseGuidList(string? csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return null;
+        var list = new List<Guid>();
+        foreach (var part in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (Guid.TryParse(part, out var id))
+                list.Add(id);
+        }
+        return list.Count > 0 ? list : null;
+    }
 }
+
+public record ResolveVariantRequest(IReadOnlyList<Guid> OptionValueIds);

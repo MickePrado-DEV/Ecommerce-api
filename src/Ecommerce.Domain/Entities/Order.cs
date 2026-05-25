@@ -9,6 +9,8 @@ public class Order : BaseEntity
     public Guid UserId { get; set; }
     public OrderStatus Status { get; set; }
     public decimal Subtotal { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public string? CouponCode { get; set; }
     public decimal ShippingCost { get; set; }
     public decimal Total { get; set; }
     public ICollection<OrderItem> Items { get; set; } = [];

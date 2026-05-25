@@ -102,6 +102,7 @@ try
     api.MapCartEndpoints();
     api.MapAddressEndpoints();
     api.MapCheckoutEndpoints();
+    api.MapWishlistEndpoints();
     api.MapOrderEndpoints();
     api.MapAdminEndpoints();
     api.MapDriverEndpoints();

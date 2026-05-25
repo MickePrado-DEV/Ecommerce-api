@@ -9,6 +9,14 @@ public record CheckoutRequest(
     string? PostalCode,
     string? Country,
     string? Phone,
-    decimal ShippingCost);
+    decimal ShippingCost,
+    string? CouponCode = null);
 
-public record CheckoutResultDto(Guid OrderId, string OrderNumber, decimal Total, string Status);
+public record CheckoutResultDto(
+    Guid OrderId,
+    string OrderNumber,
+    decimal Subtotal,
+    decimal DiscountAmount,
+    string? CouponCode,
+    decimal Total,
+    string Status);

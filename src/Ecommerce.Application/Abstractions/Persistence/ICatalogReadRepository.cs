@@ -12,5 +12,6 @@ public interface ICatalogReadRepository
     Task<IReadOnlyList<CoverDto>> GetActiveCoversAsync(CancellationToken ct = default);
     Task<IReadOnlyList<ProductListItemDto>> GetLatestProductsAsync(int take, CancellationToken ct = default);
     Task<ProductDetailDto?> GetProductBySlugAsync(string slug, CancellationToken ct = default);
+    Task<ResolvedVariantDto?> ResolveVariantAsync(string slug, IReadOnlyList<Guid> optionValueIds, CancellationToken ct = default);
     Task<PagedResult<ProductListItemDto>> ListProductsAsync(CatalogProductQuery query, CancellationToken ct = default);
 }

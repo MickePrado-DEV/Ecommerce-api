@@ -11,5 +11,6 @@ namespace Ecommerce.Domain.Entities
 
         public Product Product { get; set; } = null!;
         public Inventory? Inventory { get; set; }
+        public ICollection<VariantOptionValue> OptionValues { get; set; } = [];
     }
 }

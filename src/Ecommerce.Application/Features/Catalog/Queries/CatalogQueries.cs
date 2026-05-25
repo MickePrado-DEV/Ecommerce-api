@@ -2,6 +2,8 @@
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.Common;
 using Ecommerce.Application.DTOs.Catalog;
+using Ecommerce.Application.DTOs.Reviews;
+using Ecommerce.Domain.Entities;
 using FluentResults;
 using MediatR;
 
@@ -110,4 +112,81 @@ public class ListProductsQueryHandler(ICatalogReadRepository repo)
 {
     public async Task<Result<PagedResult<ProductListItemDto>>> Handle(ListProductsQuery request, CancellationToken ct) =>
         Result.Ok(await repo.ListProductsAsync(request.Query, ct));
+}
+
+public record ResolveProductVariantQuery(string Slug, IReadOnlyList<Guid> OptionValueIds)
+    : IRequest<Result<ResolvedVariantDto>>;
+
+public class ResolveProductVariantQueryHandler(ICatalogReadRepository repo)
+    : IRequestHandler<ResolveProductVariantQuery, Result<ResolvedVariantDto>>
+{
+    public async Task<Result<ResolvedVariantDto>> Handle(ResolveProductVariantQuery request, CancellationToken ct)
+    {
+        if (request.OptionValueIds.Count == 0)
+            return Result.Fail<ResolvedVariantDto>(CatalogErrors.VariantNotResolved(request.Slug));
+
+        var variant = await repo.ResolveVariantAsync(request.Slug, request.OptionValueIds, ct);
+        return variant is null
+            ? Result.Fail<ResolvedVariantDto>(CatalogErrors.VariantNotResolved(request.Slug))
+            : Result.Ok(variant);
+    }
+}
+
+public record GetProductReviewsQuery(string Slug) : IRequest<Result<ProductReviewsPageDto>>;
+
+public class GetProductReviewsQueryHandler(IProductReviewRepository reviews)
+    : IRequestHandler<GetProductReviewsQuery, Result<ProductReviewsPageDto>>
+{
+    public async Task<Result<ProductReviewsPageDto>> Handle(GetProductReviewsQuery request, CancellationToken ct)
+    {
+        var product = await reviews.GetActiveProductBySlugAsync(request.Slug, ct);
+        if (product is null)
+            return Result.Fail<ProductReviewsPageDto>(ReviewErrors.ProductNotFound(request.Slug));
+
+        var summary = await reviews.GetSummaryByProductIdAsync(product.Id, ct)
+                      ?? new ProductReviewSummaryDto(0, 0);
+        var items = await reviews.ListApprovedByProductIdAsync(product.Id, ct);
+        return Result.Ok(new ProductReviewsPageDto(summary, items));
+    }
+}
+
+public record CreateProductReviewCommand(Guid UserId, string Slug, int Rating, string? Title, string Comment)
+    : IRequest<Result<ProductReviewDto>>;
+
+public class CreateProductReviewCommandHandler(
+    IProductReviewRepository reviews,
+    IUserRepository users) : IRequestHandler<CreateProductReviewCommand, Result<ProductReviewDto>>
+{
+    public async Task<Result<ProductReviewDto>> Handle(CreateProductReviewCommand request, CancellationToken ct)
+    {
+        var product = await reviews.GetActiveProductBySlugAsync(request.Slug, ct);
+        if (product is null)
+            return Result.Fail<ProductReviewDto>(ReviewErrors.ProductNotFound(request.Slug));
+
+        if (await reviews.UserHasReviewedAsync(request.UserId, product.Id, ct))
+            return Result.Fail<ProductReviewDto>(ReviewErrors.AlreadyReviewed());
+
+        var user = await users.GetByIdWithRolesAsync(request.UserId, ct);
+        if (user is null)
+            return Result.Fail<ProductReviewDto>(new Error("Usuario no encontrado"));
+
+        var review = new ProductReview
+        {
+            ProductId = product.Id,
+            UserId = request.UserId,
+            Rating = request.Rating,
+            Title = request.Title,
+            Comment = request.Comment,
+            IsApproved = true
+        };
+        await reviews.AddAsync(review, ct);
+
+        return Result.Ok(new ProductReviewDto(
+            review.Id,
+            $"{user.FirstName} {user.LastName}",
+            review.Rating,
+            review.Title,
+            review.Comment,
+            review.CreatedAt));
+    }
 }

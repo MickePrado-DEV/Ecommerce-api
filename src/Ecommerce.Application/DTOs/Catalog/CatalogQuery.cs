@@ -7,7 +7,8 @@ public record CatalogProductQuery(
     Guid? CategoryId = null,
     Guid? SubcategoryId = null,
     string? Search = null,
-    string? Sort = null);
+    string? Sort = null,
+    IReadOnlyList<Guid>? OptionValueIds = null);
 
 public record CatalogHomeDto(
     IReadOnlyList<CoverDto> Covers,

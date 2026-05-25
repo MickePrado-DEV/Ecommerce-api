@@ -20,7 +20,11 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductOption> ProductOptions => Set<ProductOption>();
     public DbSet<OptionValue> OptionValues => Set<OptionValue>();
+    public DbSet<VariantOptionValue> VariantOptionValues => Set<VariantOptionValue>();
     public DbSet<Variant> Variants => Set<Variant>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Inventory> Inventories => Set<Inventory>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
@@ -51,7 +55,28 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
         modelBuilder.Entity<ProductImage>().ToTable("product_images");
         modelBuilder.Entity<ProductOption>().ToTable("product_options");
         modelBuilder.Entity<OptionValue>().ToTable("option_values");
+        modelBuilder.Entity<VariantOptionValue>().ToTable("variant_option_values")
+            .HasKey(x => new { x.VariantId, x.OptionValueId });
+        modelBuilder.Entity<VariantOptionValue>()
+            .HasOne(x => x.Variant).WithMany(v => v.OptionValues).HasForeignKey(x => x.VariantId);
+        modelBuilder.Entity<VariantOptionValue>()
+            .HasOne(x => x.OptionValue).WithMany().HasForeignKey(x => x.OptionValueId);
         modelBuilder.Entity<Variant>().ToTable("variants");
+        modelBuilder.Entity<WishlistItem>().ToTable("wishlist_items");
+        modelBuilder.Entity<WishlistItem>()
+            .HasIndex(w => new { w.UserId, w.ProductId }).IsUnique();
+        modelBuilder.Entity<WishlistItem>()
+            .HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId);
+        modelBuilder.Entity<WishlistItem>()
+            .HasOne(w => w.Product).WithMany().HasForeignKey(w => w.ProductId);
+        modelBuilder.Entity<ProductReview>().ToTable("product_reviews");
+        modelBuilder.Entity<ProductReview>()
+            .HasOne(r => r.Product).WithMany(p => p.Reviews).HasForeignKey(r => r.ProductId);
+        modelBuilder.Entity<ProductReview>()
+            .HasOne(r => r.User).WithMany().HasForeignKey(r => r.UserId);
+        modelBuilder.Entity<Coupon>().ToTable("coupons");
+        modelBuilder.Entity<Coupon>().HasIndex(c => c.Code).IsUnique();
+        modelBuilder.Entity<Coupon>().Property(c => c.DiscountType).HasConversion<string>().HasMaxLength(20);
         modelBuilder.Entity<Inventory>().ToTable("inventory").HasKey(i => i.VariantId);
         modelBuilder.Entity<Cart>().ToTable("carts");
         modelBuilder.Entity<CartItem>().ToTable("cart_items");

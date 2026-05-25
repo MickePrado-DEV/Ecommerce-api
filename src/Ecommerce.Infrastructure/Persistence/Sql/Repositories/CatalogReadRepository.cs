@@ -103,9 +103,56 @@ public class CatalogReadRepository(EcommerceDbContext db) : ICatalogReadReposito
         // Include + map: proyección anidada no traduce bien en todos los proveedores (p. ej. SQLite en tests).
         var product = await db.Products.AsNoTracking()
             .Include(p => p.Variants).ThenInclude(v => v.Inventory)
+            .Include(p => p.Variants).ThenInclude(v => v.OptionValues)
             .Include(p => p.Images)
             .FirstOrDefaultAsync(p => p.Slug == slug && p.IsActive, ct);
-        return product?.ToDetail();
+        if (product is null) return null;
+
+        var options = await db.ProductOptions.AsNoTracking()
+            .Where(o => o.ProductId == product.Id)
+            .Include(o => o.Values)
+            .OrderBy(o => o.SortOrder)
+            .ToListAsync(ct);
+
+        return product.ToDetail(options.Select(o => o.ToCatalogOption()).ToList());
+    }
+
+    public async Task<ResolvedVariantDto?> ResolveVariantAsync(string slug, IReadOnlyList<Guid> optionValueIds, CancellationToken ct = default)
+    {
+        var productId = await db.Products.AsNoTracking()
+            .Where(p => p.Slug == slug && p.IsActive)
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync(ct);
+        if (productId == Guid.Empty) return null;
+
+        var requested = optionValueIds.Distinct().OrderBy(id => id).ToList();
+        if (requested.Count == 0) return null;
+
+        var variants = await db.Variants.AsNoTracking()
+            .Include(v => v.Inventory)
+            .Include(v => v.OptionValues)
+            .Where(v => v.ProductId == productId && v.IsActive)
+            .ToListAsync(ct);
+
+        var match = variants.FirstOrDefault(v =>
+        {
+            var variantIds = v.OptionValues.Select(ov => ov.OptionValueId).OrderBy(id => id).ToList();
+            return variantIds.SequenceEqual(requested);
+        });
+
+        if (match is null) return null;
+
+        var basePrice = await db.Products.AsNoTracking()
+            .Where(p => p.Id == productId)
+            .Select(p => p.BasePrice)
+            .FirstAsync(ct);
+
+        return new ResolvedVariantDto(
+            match.Id,
+            match.Sku,
+            match.Price ?? basePrice,
+            (match.Inventory?.QuantityOnHand ?? 0) - (match.Inventory?.QuantityReserved ?? 0),
+            requested);
     }
 
     public async Task<PagedResult<ProductListItemDto>> ListProductsAsync(CatalogProductQuery query, CancellationToken ct = default)
@@ -124,6 +171,15 @@ public class CatalogReadRepository(EcommerceDbContext db) : ICatalogReadReposito
 
         if (!string.IsNullOrWhiteSpace(query.Search))
             q = q.Where(p => p.Name.Contains(query.Search) || (p.Description != null && p.Description.Contains(query.Search)));
+
+        if (query.OptionValueIds is { Count: > 0 } filterIds)
+        {
+            foreach (var optionValueId in filterIds.Distinct())
+            {
+                q = q.Where(p => p.Variants.Any(v =>
+                    v.IsActive && v.OptionValues.Any(ov => ov.OptionValueId == optionValueId)));
+            }
+        }
 
         q = ApplySort(q, query.Sort);
 

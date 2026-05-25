@@ -61,6 +61,9 @@ public static class DependencyInjection
         services.AddScoped<ICoverRepository, CoverRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
         services.AddScoped<IProductOptionRepository, ProductOptionRepository>();
+        services.AddScoped<IWishlistRepository, WishlistRepository>();
+        services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
+        services.AddScoped<ICouponRepository, CouponRepository>();
 
         // Servicios de infraestructura usados por handlers
         services.AddScoped<IJwtTokenService, JwtTokenService>();

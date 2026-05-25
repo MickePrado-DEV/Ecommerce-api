@@ -17,4 +17,7 @@ public static class CatalogErrors
 
     public static Error SubcategoryNotFound(string slug) =>
         new Error($"Subcategoría '{slug}' no encontrada").WithMetadata("Code", NotFoundCode);
+
+    public static Error VariantNotResolved(string slug) =>
+        new Error($"No hay variante para la combinación indicada en '{slug}'").WithMetadata("Code", "Catalog.VariantNotResolved");
 }

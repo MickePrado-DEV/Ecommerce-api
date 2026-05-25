@@ -14,5 +14,6 @@ namespace Ecommerce.Domain.Entities
         public Subcategory Subcategory { get; set; } = null!;
         public ICollection<Variant> Variants { get; set; } = [];
         public ICollection<ProductImage> Images { get; set; } = [];
+        public ICollection<ProductReview> Reviews { get; set; } = [];
     }
 }

@@ -1,6 +1,7 @@
 using Ecommerce.Application.Authorization;
 using Ecommerce.Domain.Authorization;
 using Ecommerce.Domain.Entities;
+using Ecommerce.Domain.Emums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql;
@@ -11,7 +12,11 @@ public static class DbSeeder
     {
         await EnsureRolesAsync(db, ct);
 
-        if (await db.Users.AnyAsync(ct)) return;
+        if (await db.Users.AnyAsync(ct))
+        {
+            await SeedPhase4Async(db, ct);
+            return;
+        }
 
         var permissions = AdminPermissions.All.Select(code => new Permission
         {
@@ -97,6 +102,66 @@ public static class DbSeeder
             LicenseNumber = "LIC-DEMO-001",
             VehiclePlate = "ABC-123",
             IsActive = true
+        });
+        await db.SaveChangesAsync(ct);
+
+        await SeedPhase4Async(db, ct);
+    }
+
+    /// <summary>Opciones de variante, cupón demo y datos Fase 4 (también en BD ya sembrada).</summary>
+    public static async Task SeedPhase4Async(EcommerceDbContext db, CancellationToken ct = default)
+    {
+        if (!await db.Coupons.AnyAsync(c => c.Code == "WELCOME10", ct))
+        {
+            db.Coupons.Add(new Coupon
+            {
+                Code = "WELCOME10",
+                DiscountType = CouponDiscountType.Percent,
+                Value = 10,
+                MinSubtotal = 50,
+                MaxUses = 1000,
+                IsActive = true
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        var product = await db.Products
+            .Include(p => p.Variants)
+            .FirstOrDefaultAsync(p => p.Slug == "audifonos-pro-x", ct);
+        if (product is null) return;
+
+        if (await db.ProductOptions.AnyAsync(o => o.ProductId == product.Id, ct)) return;
+
+        var colorOption = new ProductOption { ProductId = product.Id, Name = "Color", SortOrder = 1 };
+        db.ProductOptions.Add(colorOption);
+        await db.SaveChangesAsync(ct);
+
+        var negro = new OptionValue { ProductOptionId = colorOption.Id, Value = "Negro", SortOrder = 1 };
+        var blanco = new OptionValue { ProductOptionId = colorOption.Id, Value = "Blanco", SortOrder = 2 };
+        db.OptionValues.AddRange(negro, blanco);
+        await db.SaveChangesAsync(ct);
+
+        var variantNegro = product.Variants.First();
+        db.VariantOptionValues.Add(new VariantOptionValue
+        {
+            VariantId = variantNegro.Id,
+            OptionValueId = negro.Id
+        });
+
+        var variantBlanco = new Variant
+        {
+            ProductId = product.Id,
+            Sku = "APX-002",
+            Price = 209.99m,
+            IsActive = true
+        };
+        db.Variants.Add(variantBlanco);
+        await db.SaveChangesAsync(ct);
+        db.Inventories.Add(new Inventory { VariantId = variantBlanco.Id, QuantityOnHand = 30 });
+        db.VariantOptionValues.Add(new VariantOptionValue
+        {
+            VariantId = variantBlanco.Id,
+            OptionValueId = blanco.Id
         });
         await db.SaveChangesAsync(ct);
     }
