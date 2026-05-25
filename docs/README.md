@@ -31,14 +31,16 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 
 ## Resumen ejecutivo
 
-- **Tienda (público):** home (portadas + novedades), catálogo por slug, búsqueda y filtros.
+**Estado:** backend API **completo** para consumo por web tienda, mobile tienda, panel admin y app repartidor. Ver [plan por fases](./09-plan-complecion-backend-web-mobile.md).
+
+- **Tienda (público):** home, catálogo, opciones/variantes, filtros `optionValueIds`, reseñas, wishlist.
 - **Carrito:** invitado (`X-Guest-Token`), merge al login, vaciar y PATCH cantidad.
-- **Direcciones:** CRUD del cliente; checkout con `addressId` o dirección inline.
-- **Checkout:** crea pedido, reserva stock; pago mock y reintento de pago.
-- **Admin:** dashboard stats, covers, catálogo, opciones por producto, inventario, pedidos, envíos (in-transit/delivered), PDF.
+- **Direcciones:** CRUD del cliente; checkout con `addressId`, cupón (`couponCode`) o dirección inline.
+- **Checkout y pedidos:** reserva stock, pago mock, cancelar, tracking, paginación.
+- **Repartidor:** registro/login, envíos asignados, in-transit, delivered.
+- **Admin:** dashboard, covers, catálogo, opciones, inventario, pedidos, envíos, conductores, PDF.
 - **Arquitectura:** CQRS (MediatR), FluentResults, handlers en `Application/Features/`.
-- **Seguridad:** JWT con permisos granulares en claims; políticas por endpoint admin.
-- **Pruebas:** colección Postman en `postman/` alineada con `03-api-endpoints.md`.
+- **Pruebas:** 9 tests integración + Postman en `postman/`.
 
 ## Usuarios de prueba (seed)
 
@@ -48,4 +50,4 @@ Lee primero la **[Guía para principiantes](./00-guia-para-principiantes.md)** �
 | Cliente | `cliente@ecommerce.local` | `Cliente123!` |
 | Repartidor | `repartidor@ecommerce.local` | `Repartidor123!` |
 
-Producto demo: slug `audifonos-pro-x`, SKU `APX-001`, stock inicial 50.
+Producto demo: slug `audifonos-pro-x`, variantes `APX-001` (Negro) y `APX-002` (Blanco). Cupón: `WELCOME10`.

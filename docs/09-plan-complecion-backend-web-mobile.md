@@ -2,25 +2,25 @@
 
 Documento maestro por **fases**. Cada fase tiene entregables, rutas nuevas y criterios de aceptación para que **web** (tienda + admin) y **mobile** (cliente + repartidor) puedan consumir la misma API.
 
-**Estado del análisis:** mayo 2026, tras migración CQRS completa.
+**Estado:** mayo 2026 — **backend API cerrado** para tienda web/mobile, admin y repartidor (Fases 1–2 y 4 ✅; Fase 3 mock).
 
 ---
 
 ## Resumen ejecutivo
 
-| Cliente | Qué necesita hoy | Qué falta (priorizado) |
-|---------|------------------|------------------------|
-| **Web tienda** | Catálogo, carrito guest, checkout, pago mock, pedidos | Tracking envío, cancelar pedido, cupones, wishlist, perfil |
-| **Mobile tienda** | Misma API + JWT + refresh | Igual que web + push, pagos reales, deep links |
-| **Web admin** | Catálogo, pedidos, envíos, conductores CRUD | Gestión usuarios/roles, reportes, reasignar envíos |
-| **Mobile repartidor** | **Nada** (sin API propia) | Registro, login, mis envíos, cambiar estado, POD |
+| Cliente | Estado API | Notas |
+|---------|------------|-------|
+| **Web tienda** | ✅ Completo | Catálogo, opciones, carrito guest, checkout, cupones, wishlist, reseñas, pedidos, tracking, cancelar |
+| **Mobile tienda** | ✅ Completo | Misma API + JWT + refresh; pago mock |
+| **Web admin** | ✅ Completo | Catálogo, opciones, stock, pedidos, envíos, conductores, PDF |
+| **Mobile repartidor** | ✅ Funcional | Registro, login, listado envíos, in-transit, delivered |
 
-| Backend hoy | Brecha principal |
-|-------------|------------------|
-| `Driver` = ficha admin sin login | No hay cuenta repartidor ni app API |
-| `POST /auth/register` genérico | No asignaba rol `customer` |
-| JWT sin roles | Mobile no distingue cliente/repartidor/admin solo con token |
-| Envío en admin | Cliente no ve tracking en `GET /orders/{id}` |
+| Fuera de alcance (opcional futuro) | Fases |
+|-------------------------------------|-------|
+| Pagos reales (Stripe/Niubiz) | 3 |
+| POD, push, disponibilidad repartidor | 5, 7 |
+| CRUD usuarios/roles, CSV, auditoría | 6 |
+| Migrations prod, rate limit, v2 | 8 |
 
 ---
 
@@ -174,16 +174,18 @@ Cupón demo en seed: `WELCOME10` (10 %, mínimo subtotal 50).
 
 ---
 
-## Fase 5 — Mobile repartidor completo
+## Fase 5 — Mobile repartidor completo (opcional / mejora)
 
-| # | Tarea |
-|---|--------|
-| 5.1 | `GET /driver/shipments/{id}` detalle (dirección, ítems, teléfono cliente) |
-| 5.2 | Proof of delivery: foto/firma (`POST .../proof`) |
-| 5.3 | `PATCH .../picked-up` estado intermedio |
-| 5.4 | Notificaciones push (FCM) al asignar envío |
-| 5.5 | Disponibilidad on/off del repartidor |
-| 5.6 | Admin: aprobar registro repartidor (`IsApproved`) |
+**Base ya operativa** (Fase 1): listado + cambio de estado. Lo siguiente es UX avanzada, no bloqueante.
+
+| # | Tarea | Estado |
+|---|--------|--------|
+| 5.1 | `GET /driver/shipments/{id}` detalle | Opcional |
+| 5.2 | Proof of delivery (`POST .../proof`) | Opcional |
+| 5.3 | `PATCH .../picked-up` | Opcional |
+| 5.4 | Push FCM | Opcional |
+| 5.5 | Disponibilidad on/off | Opcional |
+| 5.6 | Admin aprobar repartidor | Opcional |
 
 ---
 
@@ -268,3 +270,4 @@ Cupón demo en seed: `WELCOME10` (10 %, mínimo subtotal 50).
 |-------|--------|
 | 2026-05 | Creación del plan; inicio Fase 1 (registro customer/driver + API driver) |
 | 2026-05 | Fase 3 marcada como mock permanente; Fase 4 implementada (opciones, wishlist, reseñas, cupones) |
+| 2026-05 | **Cierre backend:** Fases 1–2–4 listas; 5–8 documentadas como opcionales |

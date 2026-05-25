@@ -17,6 +17,10 @@ Es una **API REST**: un programa que escucha peticiones HTTP (Postman, React, m�
 | **Direcciones** | CRUD del cliente |
 | **Checkout y pedidos** | Crear pedido, reservar stock, pago simulado |
 | **Admin** | Dashboard, covers, catálogo, inventario, pedidos, envíos, PDF |
+| **Repartidor** | Login, mis envíos, marcar en tránsito / entregado |
+| **Extras tienda** | Wishlist, reseñas, cupones en checkout, selector de variantes por opciones |
+
+**Estado del backend:** ciclo de compra **cerrado** (catálogo → carrito → checkout → pago mock → despacho → entrega). El pago es **simulado** a propósito (`MOCK-…`); no hay pasarela real.
 
 **Tecnología:** C#, **.NET 10**, **Minimal APIs**, **MediatR** (CQRS), **FluentValidation**, **FluentResults**, **EF Core**, **SQL Server** o **SQLite**.
 

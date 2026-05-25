@@ -56,7 +56,10 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 | GET | `/subcategories/{slug}` | 🔓 | Subcategoría |
 | GET | `/products` | 🔓 | Listado paginado con filtros |
 | GET | `/search?q=` | 🔓 | Alias de búsqueda en productos |
-| GET | `/products/{slug}` | 🔓 | Detalle con variantes, precios e imágenes |
+| GET | `/products/{slug}` | 🔓 | Detalle con opciones, variantes (`optionValueIds`), imágenes |
+| GET | `/products/{slug}/reviews` | 🔓 | Reseñas aprobadas + resumen (media, total) |
+| POST | `/products/{slug}/reviews` | 🔐 | Crear reseña (1 por usuario y producto) |
+| POST | `/products/{slug}/resolve-variant` | 🔓 | Body: `{ "optionValueIds": [guid, ...] }` → variante |
 
 ### Query `GET /products`
 
@@ -66,6 +69,7 @@ Leyenda: 🔓 público · 🔐 JWT requerido · 👑 admin + permiso
 | `familyId`, `categoryId`, `subCategoryId` | Filtro jerárquico |
 | `q` | Búsqueda por nombre/descripción |
 | `sort` | `price:asc`, `price:desc`, `recent` (o `1`/`2`/`3`) |
+| `optionValueIds` | CSV de GUIDs (productos con variantes que incluyen esos valores) |
 
 ---
 
@@ -143,11 +147,24 @@ O sin `addressId`:
   "postalCode": "06600",
   "country": "MX",
   "phone": "5551234567",
-  "shippingCost": 99.00
+  "shippingCost": 99.00,
+  "couponCode": "WELCOME10"
 }
 ```
 
-Respuesta: `orderId`, `orderNumber`, `total`, `status` (`PendingPayment`).
+Respuesta: `orderId`, `orderNumber`, `subtotal`, `discountAmount`, `couponCode`, `total`, `status` (`PendingPayment`).
+
+Cupón demo (seed): `WELCOME10` — 10 % de descuento, subtotal mínimo 50.
+
+---
+
+## Wishlist — `/api/v1/wishlist`
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/` | 🔐 | Lista de productos favoritos |
+| POST | `/{productId}` | 🔐 | Agregar producto |
+| DELETE | `/{productId}` | 🔐 | Quitar producto |
 
 ---
 
