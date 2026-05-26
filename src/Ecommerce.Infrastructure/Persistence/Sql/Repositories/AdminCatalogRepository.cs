@@ -1,4 +1,5 @@
 using Ecommerce.Application.Abstractions.Persistence;
+using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Domain.Exceptions;
 
@@ -11,6 +12,122 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
 
     public Task<List<Family>> ListFamiliesAsync(CancellationToken ct = default) =>
         db.Families.OrderBy(f => f.SortOrder).ToListAsync(ct);
+
+    public async Task<(List<Family> Items, int Total)> ListFamiliesPagedAsync(
+        AdminTableQueryParams query, CancellationToken ct = default)
+    {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        var desc = string.Equals(query.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+        var q = db.Families.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim();
+            q = q.Where(f => f.Name.Contains(s) || f.Slug.Contains(s));
+        }
+
+        q = (query.SortKey?.ToLowerInvariant()) switch
+        {
+            "name" => desc ? q.OrderByDescending(f => f.Name) : q.OrderBy(f => f.Name),
+            "id" => desc ? q.OrderByDescending(f => f.Id) : q.OrderBy(f => f.Id),
+            _ => desc ? q.OrderByDescending(f => f.SortOrder) : q.OrderBy(f => f.SortOrder),
+        };
+
+        var total = await q.CountAsync(ct);
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, total);
+    }
+
+    public async Task<(List<CategoryAdminRowDto> Items, int Total)> ListCategoriesPagedAsync(
+        AdminTableQueryParams query, CancellationToken ct = default)
+    {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        var desc = string.Equals(query.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+        var q = db.Categories.AsNoTracking().Select(c => new CategoryAdminRowDto(
+            c.Id,
+            c.FamilyId,
+            c.Name,
+            c.Slug,
+            c.SortOrder,
+            c.IsActive,
+            c.Family.Name));
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim();
+            q = q.Where(c => c.Name.Contains(s) || c.Slug.Contains(s));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.FamilyName))
+        {
+            var f = query.FamilyName.Trim();
+            q = q.Where(c => c.FamilyName.Contains(f));
+        }
+
+        q = (query.SortKey?.ToLowerInvariant()) switch
+        {
+            "name" => desc ? q.OrderByDescending(c => c.Name) : q.OrderBy(c => c.Name),
+            "familyname" => desc ? q.OrderByDescending(c => c.FamilyName) : q.OrderBy(c => c.FamilyName),
+            "id" => desc ? q.OrderByDescending(c => c.Id) : q.OrderBy(c => c.Id),
+            _ => desc ? q.OrderByDescending(c => c.SortOrder) : q.OrderBy(c => c.SortOrder),
+        };
+
+        var total = await q.CountAsync(ct);
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, total);
+    }
+
+    public async Task<(List<SubcategoryAdminRowDto> Items, int Total)> ListSubcategoriesPagedAsync(
+        AdminTableQueryParams query, CancellationToken ct = default)
+    {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        var desc = string.Equals(query.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+        var q = db.Subcategories.AsNoTracking().Select(s => new SubcategoryAdminRowDto(
+            s.Id,
+            s.CategoryId,
+            s.Name,
+            s.Slug,
+            s.SortOrder,
+            s.IsActive,
+            s.Category.Name,
+            s.Category.Family.Name));
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim();
+            q = q.Where(x => x.Name.Contains(s) || x.Slug.Contains(s));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.CategoryName))
+        {
+            var c = query.CategoryName.Trim();
+            q = q.Where(x => x.CategoryName.Contains(c));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.FamilyName))
+        {
+            var f = query.FamilyName.Trim();
+            q = q.Where(x => x.FamilyName.Contains(f));
+        }
+
+        q = (query.SortKey?.ToLowerInvariant()) switch
+        {
+            "name" => desc ? q.OrderByDescending(x => x.Name) : q.OrderBy(x => x.Name),
+            "categoryname" => desc ? q.OrderByDescending(x => x.CategoryName) : q.OrderBy(x => x.CategoryName),
+            "familyname" => desc ? q.OrderByDescending(x => x.FamilyName) : q.OrderBy(x => x.FamilyName),
+            "id" => desc ? q.OrderByDescending(x => x.Id) : q.OrderBy(x => x.Id),
+            _ => desc ? q.OrderByDescending(x => x.SortOrder) : q.OrderBy(x => x.SortOrder),
+        };
+
+        var total = await q.CountAsync(ct);
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, total);
+    }
 
     public async Task<Family> SaveFamilyAsync(Family entity, CancellationToken ct = default)
     {

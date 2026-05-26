@@ -228,6 +228,49 @@ public class ListFamiliesAdminQueryHandler(IAdminCatalogRepository repo)
     }
 }
 
+public record ListFamiliesPagedAdminQuery(AdminTableQueryParams Query) : IRequest<Result<PagedFamiliesAdminDto>>;
+
+public class ListFamiliesPagedAdminQueryHandler(IAdminCatalogRepository repo)
+    : IRequestHandler<ListFamiliesPagedAdminQuery, Result<PagedFamiliesAdminDto>>
+{
+    public async Task<Result<PagedFamiliesAdminDto>> Handle(ListFamiliesPagedAdminQuery request, CancellationToken ct)
+    {
+        var q = request.Query;
+        var (items, total) = await repo.ListFamiliesPagedAsync(q, ct);
+        return Result.Ok(new PagedFamiliesAdminDto(
+            items.Select(f => new FamilyAdminDto(f.Id, f.Name, f.Slug, f.SortOrder, f.IsActive)).ToList(),
+            total,
+            Math.Max(1, q.Page),
+            Math.Clamp(q.PageSize, 1, 100)));
+    }
+}
+
+public record ListCategoriesPagedAdminQuery(AdminTableQueryParams Query) : IRequest<Result<PagedCategoriesAdminDto>>;
+
+public class ListCategoriesPagedAdminQueryHandler(IAdminCatalogRepository repo)
+    : IRequestHandler<ListCategoriesPagedAdminQuery, Result<PagedCategoriesAdminDto>>
+{
+    public async Task<Result<PagedCategoriesAdminDto>> Handle(ListCategoriesPagedAdminQuery request, CancellationToken ct)
+    {
+        var q = request.Query;
+        var (items, total) = await repo.ListCategoriesPagedAsync(q, ct);
+        return Result.Ok(new PagedCategoriesAdminDto(items, total, Math.Max(1, q.Page), Math.Clamp(q.PageSize, 1, 100)));
+    }
+}
+
+public record ListSubcategoriesPagedAdminQuery(AdminTableQueryParams Query) : IRequest<Result<PagedSubcategoriesAdminDto>>;
+
+public class ListSubcategoriesPagedAdminQueryHandler(IAdminCatalogRepository repo)
+    : IRequestHandler<ListSubcategoriesPagedAdminQuery, Result<PagedSubcategoriesAdminDto>>
+{
+    public async Task<Result<PagedSubcategoriesAdminDto>> Handle(ListSubcategoriesPagedAdminQuery request, CancellationToken ct)
+    {
+        var q = request.Query;
+        var (items, total) = await repo.ListSubcategoriesPagedAsync(q, ct);
+        return Result.Ok(new PagedSubcategoriesAdminDto(items, total, Math.Max(1, q.Page), Math.Clamp(q.PageSize, 1, 100)));
+    }
+}
+
 public record SaveFamilyCommand(Guid? Id, string Name, string Slug, int SortOrder, bool IsActive)
     : IRequest<Result<FamilyAdminDto>>;
 

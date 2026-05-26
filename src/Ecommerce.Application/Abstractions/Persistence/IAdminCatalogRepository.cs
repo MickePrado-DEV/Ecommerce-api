@@ -1,3 +1,4 @@
+using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.Application.Abstractions.Persistence;
@@ -6,6 +7,9 @@ public interface IAdminCatalogRepository
 {
     Task<Family?> GetFamilyAsync(Guid id, CancellationToken ct = default);
     Task<List<Family>> ListFamiliesAsync(CancellationToken ct = default);
+    Task<(List<Family> Items, int Total)> ListFamiliesPagedAsync(AdminTableQueryParams query, CancellationToken ct = default);
+    Task<(List<CategoryAdminRowDto> Items, int Total)> ListCategoriesPagedAsync(AdminTableQueryParams query, CancellationToken ct = default);
+    Task<(List<SubcategoryAdminRowDto> Items, int Total)> ListSubcategoriesPagedAsync(AdminTableQueryParams query, CancellationToken ct = default);
     Task<Family> SaveFamilyAsync(Family entity, CancellationToken ct = default);
     Task DeleteFamilyAsync(Guid id, CancellationToken ct = default);
 

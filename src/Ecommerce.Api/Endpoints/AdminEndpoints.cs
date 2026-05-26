@@ -92,6 +92,45 @@ public static class AdminEndpoints
             (await sender.Send(new ListFamiliesAdminQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesView);
 
+        catalog.MapGet("/families/paged", async (
+            int page,
+            int pageSize,
+            string? sortKey,
+            string? sortDir,
+            string? search,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new ListFamiliesPagedAdminQuery(
+                new AdminTableQueryParams(page, pageSize, sortKey, sortDir ?? "asc", search)), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.FamiliesView);
+
+        catalog.MapGet("/categories/paged", async (
+            int page,
+            int pageSize,
+            string? sortKey,
+            string? sortDir,
+            string? search,
+            string? familyName,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new ListCategoriesPagedAdminQuery(
+                new AdminTableQueryParams(page, pageSize, sortKey, sortDir ?? "asc", search, familyName)), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CategoriesView);
+
+        catalog.MapGet("/subcategories/paged", async (
+            int page,
+            int pageSize,
+            string? sortKey,
+            string? sortDir,
+            string? search,
+            string? categoryName,
+            string? familyName,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new ListSubcategoriesPagedAdminQuery(
+                new AdminTableQueryParams(page, pageSize, sortKey, sortDir ?? "asc", search, familyName, categoryName)), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.SubcategoriesView);
+
         catalog.MapPost("/families", async (SaveFamilyRequest req, ISender sender, CancellationToken ct) =>
             (await sender.Send(new SaveFamilyCommand(req.Id, req.Name, req.Slug, req.SortOrder, req.IsActive), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesManage);
