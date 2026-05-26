@@ -1,6 +1,7 @@
 // Panel admin: dashboard, covers, catálogo, inventario, pedidos, envíos, conductores, opciones.
 // Cada ruta exige JWT + permiso concreto (AdminPermissions.*).
 using Ecommerce.Api.Extensions;
+using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Authorization;
 using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Application.DTOs.Inventory;
@@ -46,16 +47,31 @@ public static class AdminEndpoints
             (await sender.Send(new ListCoversAdminQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.CoversView);
 
+        covers.MapGet("/paged", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListCoversPagedAdminQuery(page, pageSize), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.CoversView);
+
+        covers.MapPost("/upload", async (IFormFile file, ICoverImageStorage storage, CancellationToken ct) =>
+        {
+            await using var stream = file.OpenReadStream();
+            var result = await storage.SaveAsync(stream, file.FileName, file.Length, ct);
+            return result.IsSuccess
+                ? Results.Ok(new CoverImageUploadDto(result.Value))
+                : Results.BadRequest(new { message = result.Errors.FirstOrDefault()?.Message ?? "Error al subir." });
+        })
+            .RequireAuthorization(AdminPermissions.CoversManage)
+            .DisableAntiforgery();
+
         covers.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
             (await sender.Send(new GetCoverAdminQuery(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.CoversView);
 
         covers.MapPost("/", async (SaveCoverRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveCoverCommand(req.Id, req.Title, req.ImageUrl, req.LinkUrl, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            (await sender.Send(new SaveCoverCommand(req.Id, req.Title, req.ImageUrl, req.LinkUrl, req.IsActive, req.StartsAt, req.EndsAt), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.CoversManage);
 
         covers.MapPut("/{id:guid}", async (Guid id, SaveCoverRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveCoverCommand(id, req.Title, req.ImageUrl, req.LinkUrl, req.SortOrder, req.IsActive), ct)).ToHttpResult())
+            (await sender.Send(new SaveCoverCommand(id, req.Title, req.ImageUrl, req.LinkUrl, req.IsActive, req.StartsAt, req.EndsAt), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.CoversManage);
 
         covers.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>

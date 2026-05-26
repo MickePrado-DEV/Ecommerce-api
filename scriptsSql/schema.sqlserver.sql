@@ -206,6 +206,8 @@ CREATE TABLE covers (
     LinkUrl   NVARCHAR(MAX)    NULL,
     SortOrder INT              NOT NULL,
     IsActive  BIT              NOT NULL,
+    StartsAt  DATETIME2        NULL,
+    EndsAt    DATETIME2        NULL,
     CreatedAt DATETIME2        NOT NULL,
     UpdatedAt DATETIME2        NOT NULL,
     CONSTRAINT PK_covers PRIMARY KEY (Id)

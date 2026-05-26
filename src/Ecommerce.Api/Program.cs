@@ -2,9 +2,12 @@
 using Ecommerce.Api.Endpoints;
 using Ecommerce.Api.Middleware;
 using Ecommerce.Application;
+using Ecommerce.Application.Abstractions;
 using Ecommerce.Infrastructure;
 using Ecommerce.Infrastructure.Persistence.Sql;
+using Ecommerce.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -29,6 +32,8 @@ try
     builder.Services.AddApplication();
     // Capa Infrastructure: EF Core, repositorios, JWT, PDF
     builder.Services.AddInfrastructure(builder.Configuration);
+    var uploadsRoot = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+    builder.Services.AddSingleton<ICoverImageStorage>(_ => new CoverImageStorage(uploadsRoot));
     builder.Services.AddOpenApi();
 
     // Permite llamadas desde el frontend (orígenes en appsettings → Cors:Origins)
@@ -79,6 +84,14 @@ try
             options.WithOpenApiRoutePattern("/openapi/{documentName}.json");
         });
     }
+
+    // Archivos subidos (portadas, etc.) servidos desde /uploads
+    Directory.CreateDirectory(uploadsRoot);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(uploadsRoot),
+        RequestPath = "/uploads",
+    });
 
     // Orden del pipeline: logging → CORS → identidad (JWT) → autorización (permisos)
     app.UseSerilogRequestLogging();

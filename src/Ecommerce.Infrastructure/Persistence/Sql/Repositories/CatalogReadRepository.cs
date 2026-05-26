@@ -79,9 +79,15 @@ public class CatalogReadRepository(EcommerceDbContext db) : ICatalogReadReposito
 
     public async Task<IReadOnlyList<CoverDto>> GetActiveCoversAsync(CancellationToken ct = default)
     {
+        var now = DateTime.UtcNow;
         var list = await db.Covers.AsNoTracking()
-            .Where(c => c.IsActive)
+            .Where(c => c.IsActive
+                && (!c.EndsAt.HasValue || c.EndsAt >= now)
+                && (!c.StartsAt.HasValue || c.StartsAt <= now)
+                && c.SortOrder >= 1
+                && c.SortOrder <= 5)
             .OrderBy(c => c.SortOrder)
+            .Take(5)
             .Select(c => new CoverDto(c.Id, c.Title, c.ImageUrl, c.LinkUrl, c.SortOrder))
             .ToListAsync(ct);
         return list;

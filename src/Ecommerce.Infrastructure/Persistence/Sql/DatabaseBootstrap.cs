@@ -54,6 +54,10 @@ public static class DatabaseBootstrap
                 .Select(a => new { a.Type, a.Neighborhood, a.Latitude, a.Longitude, a.IsDefault })
                 .Take(1)
                 .ToListAsync(ct);
+            await db.Covers.AsNoTracking()
+                .Select(c => new { c.StartsAt, c.EndsAt })
+                .Take(1)
+                .ToListAsync(ct);
             return true;
         }
         catch (Exception ex) when (IsSchemaMismatch(ex))

@@ -92,6 +92,8 @@ public class ReorderCoversCommandValidator : AbstractValidator<ReorderCoversComm
     public ReorderCoversCommandValidator()
     {
         RuleFor(x => x.Ids).NotEmpty();
+        RuleFor(x => x.Ids).Must(ids => ids.Count <= 5)
+            .WithMessage("Máximo 5 portadas en el orden principal.");
     }
 }
 

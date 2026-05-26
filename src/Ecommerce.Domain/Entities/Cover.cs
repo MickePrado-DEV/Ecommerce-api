@@ -9,4 +9,6 @@ public class Cover : BaseEntity
     public string? LinkUrl { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    public DateTime? StartsAt { get; set; }
+    public DateTime? EndsAt { get; set; }
 }

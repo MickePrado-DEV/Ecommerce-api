@@ -367,3 +367,6 @@ FodyWeavers.xsd
 *.db-shm
 *.db-wal
 logs/
+
+# Imágenes subidas por el API (portadas, etc.)
+uploads/

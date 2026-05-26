@@ -1,5 +1,6 @@
 // Handlers admin: dashboard, covers, catálogo CRUD, inventario, pedidos, envíos, opciones de producto.
 using Ecommerce.Application.Abstractions;
+using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Application.DTOs.Inventory;
@@ -7,6 +8,7 @@ using Ecommerce.Application.DTOs.Orders;
 using Ecommerce.Application.DTOs.Shipments;
 using Ecommerce.Application.Features.Orders;
 using Ecommerce.Domain.Admin;
+using Ecommerce.Domain.Covers;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Domain.Emums;
 using FluentResults;
@@ -35,8 +37,31 @@ public record ListCoversAdminQuery : IRequest<Result<IReadOnlyList<CoverAdminDto
 public class ListCoversAdminQueryHandler(ICoverRepository repo)
     : IRequestHandler<ListCoversAdminQuery, Result<IReadOnlyList<CoverAdminDto>>>
 {
-    public async Task<Result<IReadOnlyList<CoverAdminDto>>> Handle(ListCoversAdminQuery request, CancellationToken ct) =>
-        Result.Ok((IReadOnlyList<CoverAdminDto>)(await repo.ListAllAsync(ct)).Select(AdminCoverMapping.Map).ToList());
+    public async Task<Result<IReadOnlyList<CoverAdminDto>>> Handle(ListCoversAdminQuery request, CancellationToken ct)
+    {
+        await repo.DeactivateExpiredAsync(ct);
+        var now = DateTime.UtcNow;
+        var list = await repo.ListAllAsync(ct);
+        return Result.Ok((IReadOnlyList<CoverAdminDto>)list.Select(c => AdminCoverMapping.Map(c, now)).ToList());
+    }
+}
+
+public record ListCoversPagedAdminQuery(int Page, int PageSize) : IRequest<Result<PagedCoversAdminDto>>;
+
+public class ListCoversPagedAdminQueryHandler(ICoverRepository repo)
+    : IRequestHandler<ListCoversPagedAdminQuery, Result<PagedCoversAdminDto>>
+{
+    public async Task<Result<PagedCoversAdminDto>> Handle(ListCoversPagedAdminQuery request, CancellationToken ct)
+    {
+        await repo.DeactivateExpiredAsync(ct);
+        var now = DateTime.UtcNow;
+        var (items, total) = await repo.ListPagedAsync(request.Page, request.PageSize, ct);
+        return Result.Ok(new PagedCoversAdminDto(
+            items.Select(c => AdminCoverMapping.Map(c, now)).ToList(),
+            total,
+            request.Page,
+            request.PageSize));
+    }
 }
 
 public record GetCoverAdminQuery(Guid Id) : IRequest<Result<CoverAdminDto>>;
@@ -47,40 +72,103 @@ public class GetCoverAdminQueryHandler(ICoverRepository repo)
     public async Task<Result<CoverAdminDto>> Handle(GetCoverAdminQuery request, CancellationToken ct)
     {
         var cover = await repo.GetAsync(request.Id, ct);
-        return cover is null
-            ? Result.Fail<CoverAdminDto>(AdminErrors.NotFound("Cover", request.Id))
-            : Result.Ok(AdminCoverMapping.Map(cover));
+        if (cover is null)
+            return Result.Fail<CoverAdminDto>(AdminErrors.NotFound("Cover", request.Id));
+
+        var now = DateTime.UtcNow;
+        return Result.Ok(AdminCoverMapping.Map(cover, now));
     }
 }
 
-public record SaveCoverCommand(Guid? Id, string Title, string ImageUrl, string? LinkUrl, int SortOrder, bool IsActive)
+public record SaveCoverCommand(
+    Guid? Id,
+    string Title,
+    string ImageUrl,
+    string? LinkUrl,
+    bool IsActive,
+    DateTime? StartsAt,
+    DateTime? EndsAt)
     : IRequest<Result<CoverAdminDto>>;
 
-public class SaveCoverCommandHandler(ICoverRepository repo)
+public class SaveCoverCommandHandler(ICoverRepository repo, ICoverImageStorage imageStorage)
     : IRequestHandler<SaveCoverCommand, Result<CoverAdminDto>>
 {
     public async Task<Result<CoverAdminDto>> Handle(SaveCoverCommand request, CancellationToken ct)
     {
+        await repo.DeactivateExpiredAsync(ct);
+        var now = DateTime.UtcNow;
+
+        var wantActive = request.IsActive;
+        if (request.EndsAt.HasValue && request.EndsAt.Value < now)
+            wantActive = false;
+
+        Cover? existing = null;
+        if (request.Id.HasValue && request.Id.Value != Guid.Empty)
+        {
+            existing = await repo.GetAsync(request.Id.Value, ct);
+            if (existing is null)
+                return Result.Fail<CoverAdminDto>(AdminErrors.NotFound("Cover", request.Id.Value));
+
+            if (!string.Equals(existing.ImageUrl, request.ImageUrl, StringComparison.OrdinalIgnoreCase))
+                imageStorage.TryDeleteByUrl(existing.ImageUrl);
+        }
+
+        var sortOrder = 0;
+        if (wantActive)
+        {
+            var activeCount = await repo.CountEffectiveActiveAsync(existing?.Id, ct);
+            var alreadyEffective = existing is not null && CoverRules.IsEffectivelyActive(existing, now);
+
+            if (!alreadyEffective && activeCount >= CoverRules.MaxPrincipalActive)
+            {
+                return Result.Fail<CoverAdminDto>(AdminErrors.InvalidState(
+                    $"Solo puede haber {CoverRules.MaxPrincipalActive} portadas activas y vigentes."));
+            }
+
+            if (existing is not null && existing.SortOrder is >= 1 and <= CoverRules.MaxPrincipalActive)
+                sortOrder = existing.SortOrder;
+            else
+            {
+                var next = await repo.GetNextPrincipalOrderAsync(ct);
+                if (next is null)
+                {
+                    return Result.Fail<CoverAdminDto>(AdminErrors.InvalidState(
+                        $"Solo puede haber {CoverRules.MaxPrincipalActive} portadas activas y vigentes."));
+                }
+
+                sortOrder = next.Value;
+            }
+        }
+
         var entity = new Cover
         {
             Id = request.Id ?? Guid.Empty,
             Title = request.Title,
             ImageUrl = request.ImageUrl,
             LinkUrl = request.LinkUrl,
-            SortOrder = request.SortOrder,
-            IsActive = request.IsActive
+            SortOrder = sortOrder,
+            IsActive = wantActive,
+            StartsAt = request.StartsAt,
+            EndsAt = request.EndsAt
         };
+
         var saved = await repo.SaveAsync(entity, ct);
-        return Result.Ok(AdminCoverMapping.Map(saved));
+        return Result.Ok(AdminCoverMapping.Map(saved, now));
     }
 }
 
 public record DeleteCoverCommand(Guid Id) : IRequest<Result>;
 
-public class DeleteCoverCommandHandler(ICoverRepository repo) : IRequestHandler<DeleteCoverCommand, Result>
+public class DeleteCoverCommandHandler(ICoverRepository repo, ICoverImageStorage imageStorage)
+    : IRequestHandler<DeleteCoverCommand, Result>
 {
     public async Task<Result> Handle(DeleteCoverCommand request, CancellationToken ct)
     {
+        var cover = await repo.GetAsync(request.Id, ct);
+        if (cover is null)
+            return Result.Fail(AdminErrors.NotFound("Cover", request.Id));
+
+        imageStorage.TryDeleteByUrl(cover.ImageUrl);
         await repo.DeleteAsync(request.Id, ct);
         return Result.Ok();
     }
@@ -92,14 +180,37 @@ public class ReorderCoversCommandHandler(ICoverRepository repo) : IRequestHandle
 {
     public async Task<Result> Handle(ReorderCoversCommand request, CancellationToken ct)
     {
-        await repo.ReorderAsync(request.Ids, ct);
-        return Result.Ok();
+        if (request.Ids.Count > CoverRules.MaxPrincipalActive)
+        {
+            return Result.Fail(AdminErrors.InvalidState(
+                $"Máximo {CoverRules.MaxPrincipalActive} portadas en el orden principal."));
+        }
+
+        try
+        {
+            await repo.DeactivateExpiredAsync(ct);
+            await repo.ReorderPrincipalAsync(request.Ids, ct);
+            return Result.Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Fail(AdminErrors.InvalidState(ex.Message));
+        }
     }
 }
 
 internal static class AdminCoverMapping
 {
-    public static CoverAdminDto Map(Cover c) => new(c.Id, c.Title, c.ImageUrl, c.LinkUrl, c.SortOrder, c.IsActive);
+    public static CoverAdminDto Map(Cover c, DateTime utcNow) => new(
+        c.Id,
+        c.Title,
+        c.ImageUrl,
+        c.LinkUrl,
+        c.SortOrder,
+        c.IsActive,
+        c.StartsAt,
+        c.EndsAt,
+        CoverRules.IsEffectivelyActive(c, utcNow));
 }
 
 // --- Catalog ---
