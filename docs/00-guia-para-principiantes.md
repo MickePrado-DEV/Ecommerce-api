@@ -7,7 +7,7 @@ Esta guía es **un solo recorrido de inicio a fin** del backend del proyecto **[
 3. **Parte III** — El repositorio del API **carpeta por carpeta, archivo por archivo**.
 4. **Parte IV** — Código real: `Program.cs`, login, carrito, checkout, pago, JWT.
 5. **Parte V** — Catálogo de **cada endpoint** → command/query → permiso.
-6. **Parte VI** — Resumen frontend + enlace a [guía frontend completa](./11-guia-frontend-principiantes.md).
+6. **Parte VI** — Resumen frontend + enlace a la [guía en ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md).
 7. **Parte VII** — Referencia, ejercicios finales y siguientes pasos.
 
 Si es tu **primera vez** con el proyecto, **sigue el orden**. Si ya tienes experiencia en .NET, salta a la [Parte II](#parte-ii-por-qué-está-así-el-proyecto).
@@ -778,7 +778,7 @@ dotnet test
 
 Repo: [github.com/MickePrado-DEV/ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web)
 
-**Guía completa:** [11-guia-frontend-principiantes.md](./11-guia-frontend-principiantes.md)
+**Guía completa (repo frontend):** [ecommerce-web/docs/00-guia-para-principiantes.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md)
 
 Arquitectura **Feature-Sliced Design (FSD)**:
 
@@ -799,7 +799,7 @@ src/
 | `widgets/admin/admin-data-table` | Listados paginados (`PagedResult`) |
 | `shared/api/client.ts` | JWT en headers, `downloadAuthenticatedFile` para PDF |
 
-Guía detallada: [11-guia-frontend-principiantes.md](./11-guia-frontend-principiantes.md) · Referencia técnica: [10-frontend-nextjs-fsd-completo.md](./10-frontend-nextjs-fsd-completo.md)
+Guía detallada: [ecommerce-web/docs/00-guia-para-principiantes.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md) · Referencia técnica: [10-referencia-fsd-completo.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/10-referencia-fsd-completo.md)
 
 ---
 
@@ -1430,102 +1430,18 @@ Requiere JWT + rol `driver`.
 
 ---
 
-# Parte VI — Frontend (resumen)
+# Parte VI — Frontend (enlace al repo web)
 
-> **Guía completa del frontend:** [11-guia-frontend-principiantes.md](./11-guia-frontend-principiantes.md) — tutorial de cero a código, carpeta por carpeta, igual que esta guía del backend.
+> La documentación del frontend vive en **[ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web)** — no en este repo del API.
 
-Repo: [github.com/MickePrado-DEV/ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web)
+| Documento | Enlace |
+|-----------|--------|
+| **Tutorial completo** | [ecommerce-web/docs/00-guia-para-principiantes.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md) |
+| Referencia FSD | [10-referencia-fsd-completo.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/10-referencia-fsd-completo.md) |
+| Inventario archivos | [INVENTARIO-ARCHIVOS.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/INVENTARIO-ARCHIVOS.md) |
+| Índice docs web | [docs/README.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/README.md) |
 
-## 6.1 Por qué FSD en el frontend
-
-Igual que el backend separa capas, el frontend usa **Feature-Sliced Design**:
-
-| Capa | Responsabilidad | Ejemplo |
-|------|-----------------|---------|
-| `app/` | Rutas Next.js (thin) | `app/(admin)/admin/products/page.tsx` |
-| `views/` | Página completa | `views/admin/products/ui/admin-products-page.tsx` |
-| `widgets/` | Bloques UI compuestos | `widgets/admin/data-table/ui/admin-data-table.tsx` |
-| `features/` | Acciones del usuario | `features/auth/login/ui/login-form.tsx` |
-| `entities/` | Dominio + API | `entities/admin/api/admin-api.ts` |
-| `shared/` | Utilidades transversales | `shared/api/client.ts` |
-
-**Regla:** una capa solo importa de capas **inferiores** (shared ← entities ← features ← widgets ← views ← app).
-
-## 6.2 Archivos clave del frontend
-
-### Entrada y auth
-
-| Archivo | Qué hace |
-|---------|----------|
-| `src/proxy.ts` | Redirige a `/login` si no hay cookie `accessToken` |
-| `src/features/auth/login/ui/login-form.tsx` | Formulario login → guarda token en cookie |
-| `src/shared/api/client.ts` | `apiGet`, `apiPost`, JWT automático, `downloadAuthenticatedFile` |
-
-### Tienda (catálogo)
-
-| Archivo | Qué hace |
-|---------|----------|
-| `src/entities/catalog/api/catalog-api.ts` | Llamadas a `/catalog/*` |
-| `src/views/catalog/...` | Páginas de familia, categoría, producto |
-| `src/widgets/catalog/product-listing/` | Grid de productos con filtros |
-| `src/features/catalog/add-to-cart/` | Botón añadir al carrito |
-
-### Admin — listados paginados
-
-| Archivo | Qué hace |
-|---------|----------|
-| `src/features/admin/table/model/use-admin-table-query.ts` | Hook: page, search, sort → query key React Query |
-| `src/widgets/admin/data-table/ui/admin-data-table.tsx` | Tabla genérica con paginación sticky |
-| `src/domain/products/product.table.ts` | Columnas, acciones (Editar, Variantes, Opciones) |
-| `src/views/admin/products/ui/admin-products-page.tsx` | Página que conecta hook + tabla + API |
-
-**Flujo admin productos:**
-
-```
-admin-products-page.tsx
-  → useAdminTableQuery({ fetchFn: adminApi.listProducts, ... })
-  → AdminDataTable lee productTableConfig
-  → admin-api.ts GET /admin/catalog/products?page=1&pageSize=20
-  → API ListProductsAdminHandler → PagedResult JSON
-```
-
-### Admin — inventario, envíos, despacho
-
-| Archivo | Qué hace |
-|---------|----------|
-| `src/domain/inventory/inventory.table.ts` | Config tabla inventario |
-| `src/views/admin/inventory/ui/inventory-adjust-cell.tsx` | Celda editable + botón ✓ |
-| `src/domain/shipments/shipment.table.ts` | Columnas envíos + acción PDF |
-| `src/views/admin/shipments/ui/admin-shipments-page.tsx` | Descarga PDF autenticada |
-| `src/domain/dispatch/dispatch-queue.table.ts` | Cola de despacho paginada |
-| `src/views/admin/dispatch/ui/admin-dispatch-queue-page.tsx` | Cola + crear lotes |
-
-### Admin — usuarios y roles
-
-| Archivo | Qué hace |
-|---------|----------|
-| `src/views/admin/users/ui/admin-users-page.tsx` | Listado paginado usuarios |
-| `src/views/admin/role-permissions/ui/admin-role-permissions-page.tsx` | Checkboxes permisos con scroll |
-| `src/entities/admin/lib/rbac-labels.ts` | Etiquetas legibles de permisos |
-
-### Repartidor
-
-| Archivo | Qué hace |
-|---------|----------|
-| `src/views/driver/...` | Panel envíos asignados |
-| `src/features/driver/mark-in-transit/` | PATCH `/driver/shipments/{id}/in-transit` |
-| `src/features/driver/mark-delivered/` | PATCH `/driver/shipments/{id}/delivered` |
-
-## 6.3 Conexión frontend ↔ backend (ejemplo login)
-
-```
-1. login-form.tsx → POST /auth/login
-2. client.ts guarda accessToken en cookie
-3. proxy.ts deja pasar rutas protegidas
-4. admin-api.ts añade Authorization: Bearer ...
-5. API valida JWT + permiso admin.products.view
-6. AdminDataTable renderiza respuesta paginada
-```
+**Resumen:** Next.js 16 + FSD (`shared` → `entities` → `features` → `widgets` → `views` → `app`). Auth con cookie `accessToken` + JWT en fetch. Admin con `useAdminTableQuery` + `AdminDataTable` + configs `domain/*.table.ts`.
 
 ---
 
@@ -1595,8 +1511,8 @@ cd scriptsSql
 | [04-autenticacion-y-permisos.md](./04-autenticacion-y-permisos.md) | JWT y permisos |
 | [05-dominio-y-base-de-datos.md](./05-dominio-y-base-de-datos.md) | Entidades y relaciones |
 | [06-flujos-de-negocio.md](./06-flujos-de-negocio.md) | Checkout, stock, despacho |
-| [10-frontend-nextjs-fsd-completo.md](./10-frontend-nextjs-fsd-completo.md) | Referencia técnica frontend |
-| [11-guia-frontend-principiantes.md](./11-guia-frontend-principiantes.md) | Tutorial frontend de cero a código |
+| [Guía frontend (repo ecommerce-web)](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md) | Tutorial frontend de cero a código |
+| [Referencia FSD (repo ecommerce-web)](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/10-referencia-fsd-completo.md) | Referencia técnica frontend |
 | [scriptsSql/README.md](../scriptsSql/README.md) | Schema y seed |
 | [postman/README.md](../postman/README.md) | Colección Postman |
 
@@ -1620,6 +1536,6 @@ cd scriptsSql
 3. Recorre la **Parte III** con el IDE abierto: abre cada archivo mientras lees.
 4. Sigue la **Parte IV** con breakpoints en Postman.
 5. Usa la **Parte V** como mapa cuando busques una ruta concreta.
-6. Abre el frontend con la **[guía frontend](./11-guia-frontend-principiantes.md)** (Parte VI es solo resumen).
+6. Abre el frontend con la **[guía en ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md)** (Parte VI es solo resumen).
 7. Haz los **ejercicios finales** de arriba.
-8. Profundiza en [03-api-endpoints.md](./03-api-endpoints.md) y [10-frontend-nextjs-fsd-completo.md](./10-frontend-nextjs-fsd-completo.md).
+8. Profundiza en [03-api-endpoints.md](./03-api-endpoints.md) y la [guía frontend en ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md).

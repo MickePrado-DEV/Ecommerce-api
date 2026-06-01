@@ -326,7 +326,7 @@ Listado completo: [docs/03-api-endpoints.md](docs/03-api-endpoints.md)
 | Si quieres… | Lee |
 |-------------|-----|
 | Tutorial backend (de cero a despacho) | [docs/00-guia-para-principiantes.md](docs/00-guia-para-principiantes.md) |
-| Tutorial frontend (Next.js FSD) | [docs/11-guia-frontend-principiantes.md](docs/11-guia-frontend-principiantes.md) |
+| Tutorial frontend (Next.js FSD) | [ecommerce-web/docs/00-guia-para-principiantes.md](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md) |
 | Arquitectura y capas | [docs/01-arquitectura.md](docs/01-arquitectura.md) |
 | Configurar y ejecutar | [docs/02-configuracion-y-ejecucion.md](docs/02-configuracion-y-ejecucion.md) |
 | Todas las rutas | [docs/03-api-endpoints.md](docs/03-api-endpoints.md) |
@@ -366,9 +366,9 @@ npm run dev
 Documentación:
 
 - [Tutorial backend](docs/00-guia-para-principiantes.md)
-- [Tutorial frontend](docs/11-guia-frontend-principiantes.md)
-- [docs/10-frontend-nextjs-fsd-completo.md](docs/10-frontend-nextjs-fsd-completo.md)
-- [docs/INVENTARIO-FRONTEND-ARCHIVOS.md](docs/INVENTARIO-FRONTEND-ARCHIVOS.md)
+- [Tutorial frontend](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/00-guia-para-principiantes.md)
+- [Referencia FSD frontend](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/10-referencia-fsd-completo.md)
+- [Inventario archivos frontend](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/docs/INVENTARIO-ARCHIVOS.md)
 - [README del frontend](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/README.md)
 
 ---
