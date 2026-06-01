@@ -10,6 +10,7 @@ public interface IInventoryRepository
     Task CommitReservationAsync(Guid orderId, CancellationToken ct = default);
     Task ReleaseReservationAsync(Guid orderId, CancellationToken ct = default);
     Task AdjustAsync(Guid variantId, int deltaOnHand, int deltaReserved, StockMovementType type, string? reference, CancellationToken ct = default);
-    Task<List<Inventory>> ListAsync(CancellationToken ct = default);
+    Task<(List<Inventory> Items, int Total)> ListPagedAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default);
     Task UpsertAsync(Guid variantId, int quantityOnHand, CancellationToken ct = default);
 }

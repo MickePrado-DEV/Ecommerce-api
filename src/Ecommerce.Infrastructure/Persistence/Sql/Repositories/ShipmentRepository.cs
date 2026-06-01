@@ -3,15 +3,21 @@ using Ecommerce.Domain.Entities;
 using Ecommerce.Domain.Emums;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql.Repositories;
-
 public class ShipmentRepository(EcommerceDbContext db) : IShipmentRepository
 {
     public Task<Shipment?> GetByOrderIdAsync(Guid orderId, CancellationToken ct = default) =>
-        db.Shipments.Include(s => s.Driver).Include(s => s.Ticket)
+        db.Shipments
+            .Include(s => s.Driver)
+            .Include(s => s.Ticket)
+            .Include(s => s.Order).ThenInclude(o => o.Items)
+            .Include(s => s.Order).ThenInclude(o => o.Address)
             .FirstOrDefaultAsync(s => s.OrderId == orderId, ct);
 
     public Task<Shipment?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        db.Shipments.Include(s => s.Driver).Include(s => s.Order).ThenInclude(o => o.Items)
+        db.Shipments
+            .Include(s => s.Driver)
+            .Include(s => s.Order).ThenInclude(o => o.Items)
+            .Include(s => s.Order).ThenInclude(o => o.Address)
             .Include(s => s.Ticket)
             .FirstOrDefaultAsync(s => s.Id == id, ct);
 
@@ -34,37 +40,8 @@ public class ShipmentRepository(EcommerceDbContext db) : IShipmentRepository
     public Task<Driver?> GetDriverWithUserAsync(Guid id, CancellationToken ct = default) =>
         db.Drivers.Include(d => d.User).FirstOrDefaultAsync(d => d.Id == id, ct);
 
-    public async Task<Driver> SaveDriverAsync(Driver driver, CancellationToken ct = default)
-    {
-        if (driver.Id == Guid.Empty)
-        {
-            driver.Id = Guid.NewGuid();
-            db.Drivers.Add(driver);
-        }
-        else
-        {
-            var tracked = await db.Drivers.FindAsync([driver.Id], ct);
-            if (tracked is null)
-            {
-                db.Drivers.Add(driver);
-            }
-            else
-            {
-                tracked.Name = driver.Name;
-                tracked.Phone = driver.Phone;
-                tracked.Email = driver.Email;
-                tracked.LicenseNumber = driver.LicenseNumber;
-                tracked.VehicleType = driver.VehicleType;
-                tracked.VehiclePlate = driver.VehiclePlate;
-                tracked.Notes = driver.Notes;
-                tracked.IsActive = driver.IsActive;
-                driver = tracked;
-            }
-        }
-
-        await db.SaveChangesAsync(ct);
-        return driver;
-    }
+    public Task<Driver> SaveDriverAsync(Driver driver, CancellationToken ct = default) =>
+        ShipmentDriverQueries.SaveDriverAsync(db, driver, ct);
 
     public async Task DeleteDriverAsync(Guid id, CancellationToken ct = default)
     {
@@ -73,15 +50,13 @@ public class ShipmentRepository(EcommerceDbContext db) : IShipmentRepository
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<(List<Shipment> Items, int Total)> ListAsync(int page, int pageSize, CancellationToken ct = default)
-    {
-        var q = db.Shipments.AsNoTracking();
-        var total = await q.CountAsync(ct);
-        var items = await q.Include(s => s.Driver).Include(s => s.Order)
-            .OrderByDescending(s => s.CreatedAt)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        return (items, total);
-    }
+    public Task<(List<Shipment> Items, int Total)> ListAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default) =>
+        ShipmentListQueries.ListShipmentsAsync(db, page, pageSize, search, sortBy, sortDirection, ct);
+
+    public Task<(List<Driver> Items, int Total)> ListDriversPagedAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default) =>
+        ShipmentListQueries.ListDriversPagedAsync(db, page, pageSize, search, sortBy, sortDirection, ct);
 
     public async Task UpdateStatusAsync(Guid shipmentId, ShipmentStatus status, CancellationToken ct = default)
     {

@@ -9,12 +9,19 @@ const collectionPath = path.join(__dirname, '..', 'Ecommerce-API.postman_collect
 const col = JSON.parse(fs.readFileSync(collectionPath, 'utf8'));
 
 const extraVars = [
-  { key: 'addressId', value: '' },
+  { key: 'addressId', value: '66666666-6666-6666-6666-666666666601' },
   { key: 'coverId', value: '' },
   { key: 'optionId', value: '' },
+  { key: 'globalOptionId', value: '' },
+  { key: 'roleId', value: '' },
+  { key: 'batchId', value: '' },
+  { key: 'routeId', value: '' },
+  { key: 'stopId', value: '' },
+  { key: 'couponCode', value: 'WELCOME10' },
   { key: 'familySlug', value: 'electronica' },
   { key: 'categorySlug', value: 'audio' },
-  { key: 'subcategorySlug', value: 'audifonos' }
+  { key: 'subcategorySlug', value: 'audifonos' },
+  { key: 'productSlug', value: 'audifonos-pro-x' }
 ];
 for (const v of extraVars) {
   if (!col.variable.find((x) => x.key === v.key)) col.variable.push(v);
@@ -100,6 +107,38 @@ const saveAddressIdTest = {
       '  const j = pm.response.json();',
       "  pm.collectionVariables.set('addressId', j.id);",
       "  try { pm.environment.set('addressId', j.id); } catch(e) {}",
+      '}'
+    ]
+  }
+};
+
+const savePagedFirstId = (path, varName) => ({
+  listen: 'test',
+  script: {
+    type: 'text/javascript',
+    exec: [
+      'if (pm.response.code !== 200) return;',
+      'const j = pm.response.json();',
+      `const item = j.items?.[0] || j[0];`,
+      `if (item?.${path}) {`,
+      `  pm.collectionVariables.set('${varName}', item.${path});`,
+      `  try { pm.environment.set('${varName}', item.${path}); } catch(e) {}`,
+      '}'
+    ]
+  }
+});
+
+const saveDriversOptionsTest = {
+  listen: 'test',
+  script: {
+    type: 'text/javascript',
+    exec: [
+      'if (pm.response.code !== 200) return;',
+      'const j = pm.response.json();',
+      'const list = Array.isArray(j) ? j : (j.items || []);',
+      'if (list.length) {',
+      "  pm.collectionVariables.set('driverId', list[0].id);",
+      "  try { pm.environment.set('driverId', list[0].id); } catch(e) {}",
       '}'
     ]
   }
@@ -290,9 +329,24 @@ upsertByName(coversFolder, [
 // --- 08 Shipments ---
 const adminShip = findFolder('08 - Admin - Pedidos y Envíos');
 upsertByName(adminShip, [
-  makeRequest('Listar envíos', 'GET', '{{baseUrl}}/api/v1/admin/shipments?page=1&pageSize=20', {
-    description: 'Listado paginado.'
+  makeRequest('Listar pedidos (paginado)', 'GET', '{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc', {
+    description: 'Respuesta paginada estándar.',
+    event: [savePagedFirstId('id', 'orderId')]
   }),
+  makeRequest('Listar envíos (paginado)', 'GET', '{{baseUrl}}/api/v1/admin/shipments?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc', {
+    description: 'Listado paginado con sort.',
+    event: [savePagedFirstId('id', 'shipmentId')]
+  }),
+  {
+    name: 'Listar conductores (select)',
+    event: [saveDriversOptionsTest],
+    request: {
+      method: 'GET',
+      url: '{{baseUrl}}/api/v1/admin/drivers/options',
+      description: 'Lista completa para selects (crear envío).'
+    }
+  },
+  makeRequest('Listar conductores (paginado)', 'GET', '{{baseUrl}}/api/v1/admin/drivers?page=1&pageSize=20&sortBy=name&sortDirection=asc'),
   makeRequest('Ticket PDF por pedido', 'GET', '{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ticket', {
     description: 'PDF por orderId.'
   }),
@@ -304,33 +358,128 @@ upsertByName(adminShip, [
   })
 ]);
 
-// --- 10 Options ---
-ensureFolder('10 - Admin - Opciones producto', 'Necesita {{productId}} del listado admin.');
-const optsFolder = findFolder('10 - Admin - Opciones producto');
-upsertByName(optsFolder, [
-  makeRequest('Listar opciones', 'GET', '{{baseUrl}}/api/v1/admin/products/{{productId}}/options'),
-  makeRequest('Crear opción', 'POST', '{{baseUrl}}/api/v1/admin/products/{{productId}}/options', {
-    body: '{\n  "name": "Color",\n  "sortOrder": 1\n}',
-    event: [{
-      listen: 'test',
-      script: {
-        type: 'text/javascript',
-        exec: ["if (pm.response.code === 200) pm.collectionVariables.set('optionId', pm.response.json().id);"]
-      }
-    }]
+// --- 10 Global Options ---
+ensureFolder('10 - Admin - Opciones globales', 'Catálogo global Talla/Color/Sexo + asignaciones por producto.');
+const globalOpts = findFolder('10 - Admin - Opciones globales');
+upsertByName(globalOpts, [
+  makeRequest('Listar opciones globales', 'GET', '{{baseUrl}}/api/v1/admin/options'),
+  makeRequest('Listar asignaciones producto', 'GET', '{{baseUrl}}/api/v1/admin/products/{{productId}}/option-assignments'),
+  makeRequest('Listar variantes producto', 'GET', '{{baseUrl}}/api/v1/admin/products/{{productId}}/variants'),
+  makeRequest('Generar variantes', 'POST', '{{baseUrl}}/api/v1/admin/products/{{productId}}/variants/generate')
+]);
+
+// --- 11 Users & Roles ---
+ensureFolder('11 - Admin - Usuarios y Roles', 'Requiere Login Admin.');
+const usersFolder = findFolder('11 - Admin - Usuarios y Roles');
+upsertByName(usersFolder, [
+  makeRequest('Listar usuarios', 'GET', '{{baseUrl}}/api/v1/admin/users?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc'),
+  makeRequest('Obtener usuario', 'GET', '{{baseUrl}}/api/v1/admin/users/{{userId}}'),
+  makeRequest('Listar roles', 'GET', '{{baseUrl}}/api/v1/admin/roles', {
+    event: [savePagedFirstId('id', 'roleId')]
   }),
-  makeRequest('Agregar valor opción', 'POST', '{{baseUrl}}/api/v1/admin/products/{{productId}}/options/{{optionId}}/values', {
-    body: '{\n  "value": "Negro",\n  "sortOrder": 1\n}'
+  makeRequest('Listar permisos', 'GET', '{{baseUrl}}/api/v1/admin/permissions'),
+  makeRequest('Permisos de rol', 'GET', '{{baseUrl}}/api/v1/admin/roles/{{roleId}}')
+]);
+
+// --- 12 Dispatch ---
+ensureFolder('12 - Admin - Despacho (lotes/rutas)', 'Pedidos ReadyToDispatch + geo en direcciones.');
+const dispatchFolder = findFolder('12 - Admin - Despacho (lotes/rutas)');
+upsertByName(dispatchFolder, [
+  makeRequest('Config despacho', 'GET', '{{baseUrl}}/api/v1/admin/dispatch/settings'),
+  makeRequest('Cola despacho', 'GET', '{{baseUrl}}/api/v1/admin/dispatch/queue?page=1&pageSize=20'),
+  makeRequest('Listar lotes', 'GET', '{{baseUrl}}/api/v1/admin/dispatch/batches'),
+  makeRequest('Listar rutas', 'GET', '{{baseUrl}}/api/v1/admin/dispatch/routes')
+]);
+
+// Inventario paginado
+const inv = findFolder('07 - Admin - Inventario');
+upsertByName(inv, [
+  makeRequest('Listar inventario (paginado)', 'GET', '{{baseUrl}}/api/v1/admin/inventory?page=1&pageSize=20&sortBy=sku&sortDirection=asc'),
+  makeRequest('Stock por variante', 'GET', '{{baseUrl}}/api/v1/admin/inventory/{{variantId}}', {
+    description: 'Detalle inventario de una variante.'
+  }),
+  makeRequest('Ajustar stock', 'PUT', '{{baseUrl}}/api/v1/admin/inventory/{{variantId}}', {
+    body: '{\n  "quantityOnHand": 100\n}'
   })
 ]);
 
-// Inventario GET by variant
-const inv = findFolder('07 - Admin - Inventario');
-upsertByName(inv, [
-  makeRequest('Stock por variante', 'GET', '{{baseUrl}}/api/v1/admin/inventory/{{variantId}}', {
-    description: 'Detalle inventario de una variante.'
+// Catálogo admin paginado
+const adminCatalog = findFolder('06 - Admin - Catálogo CRUD');
+upsertByName(adminCatalog, [
+  makeRequest('Listar productos (paginado)', 'GET', '{{baseUrl}}/api/v1/admin/catalog/products?page=1&pageSize=20&search=&sortBy=name&sortDirection=asc', {
+    event: [savePagedFirstId('id', 'productId')]
   })
 ]);
+
+// Fix Flujo Admin drivers step
+const flujoAdmin = findFolder('Flujo Admin (ejecutar en orden)');
+if (flujoAdmin) {
+  const driversStep = flujoAdmin.item.find((i) => i.name === '4. Listar conductores');
+  if (driversStep) {
+    driversStep.event = [saveDriversOptionsTest];
+    driversStep.request.method = 'GET';
+    driversStep.request.url = '{{baseUrl}}/api/v1/admin/drivers/options';
+  }
+  const ordersStep = flujoAdmin.item.find((i) => i.name === '2. Listar pedidos pagados');
+  if (ordersStep) {
+    ordersStep.request.url = '{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=10&status=Paid&sortBy=createdAt&sortDirection=desc';
+    ordersStep.event = [savePagedFirstId('id', 'orderId')];
+  }
+}
+
+// Flujo Completo E2E
+ensureFolder('Flujo Completo E2E', 'Ejecutar carpeta completa con Runner. Seed: scriptsSql/seed.sqlserver.sql');
+const e2e = findFolder('Flujo Completo E2E');
+upsertByName(e2e, [
+  makeRequest('0. Ready BD', 'GET', '{{baseUrl}}/ready', { auth: 'noauth' }),
+  makeRequest('1. Login Cliente', 'POST', '{{baseUrl}}/api/v1/auth/login', {
+    auth: 'noauth',
+    body: '{\n  "email": "cliente@ecommerce.local",\n  "password": "Cliente123!"\n}',
+    event: [{
+      listen: 'test',
+      script: { type: 'text/javascript', exec: [
+        "if (pm.response.code===200){const j=pm.response.json();['accessToken','refreshToken','customerToken'].forEach(k=>pm.collectionVariables.set(k,j.accessToken));}"
+      ]}
+    }]
+  }),
+  makeRequest('2. Detalle producto', 'GET', '{{baseUrl}}/api/v1/catalog/products/{{productSlug}}', {
+    auth: 'noauth',
+    event: [{ listen: 'test', script: { type: 'text/javascript', exec: [
+      "if(pm.response.code===200&&pm.response.json().variants?.length){pm.collectionVariables.set('variantId',pm.response.json().variants[0].id);}"
+    ]}}]
+  }),
+  makeRequest('3. Agregar carrito', 'POST', '{{baseUrl}}/api/v1/cart/items', {
+    body: '{\n  "variantId": "{{variantId}}",\n  "quantity": 1\n}'
+  }),
+  makeRequest('4. Checkout addressId', 'POST', '{{baseUrl}}/api/v1/checkout', {
+    body: '{\n  "addressId": "{{addressId}}",\n  "shippingCost": 99.00\n}',
+    event: [saveOrderIdTest]
+  }),
+  makeRequest('5. Pagar pedido', 'POST', '{{baseUrl}}/api/v1/orders/{{orderId}}/pay'),
+  makeRequest('6. Login Admin', 'POST', '{{baseUrl}}/api/v1/auth/login', {
+    auth: 'noauth',
+    body: '{\n  "email": "admin@ecommerce.local",\n  "password": "Admin123!"\n}',
+    event: [{ listen: 'test', script: { type: 'text/javascript', exec: [
+      "if(pm.response.code===200){pm.collectionVariables.set('accessToken',pm.response.json().accessToken);}"
+    ]}}]
+  }),
+  makeRequest('7. Listo despacho', 'POST', '{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ready'),
+  {
+    name: '8. Conductores options',
+    event: [saveDriversOptionsTest],
+    request: { method: 'GET', url: '{{baseUrl}}/api/v1/admin/drivers/options' }
+  },
+  makeRequest('9. Crear envío', 'POST', '{{baseUrl}}/api/v1/admin/shipments', {
+    body: '{\n  "orderId": "{{orderId}}",\n  "driverId": "{{driverId}}",\n  "trackingNumber": "E2E-001"\n}',
+    event: [{ listen: 'test', script: { type: 'text/javascript', exec: [
+      "if(pm.response.code===200) pm.collectionVariables.set('shipmentId', pm.response.json().id);"
+    ]}}]
+  }),
+  makeRequest('10. Ticket PDF envío', 'GET', '{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/ticket.pdf')
+]);
+
+// Remove legacy folder name if duplicated
+col.item = col.item.filter((i) => i.name !== '10 - Admin - Opciones producto');
 
 // Reorder folders
 const order = [
@@ -345,9 +494,12 @@ const order = [
   '07 - Admin - Inventario',
   '08 - Admin - Pedidos y Envíos',
   '09 - Admin - Portadas (Covers)',
-  '10 - Admin - Opciones producto',
+  '10 - Admin - Opciones globales',
+  '11 - Admin - Usuarios y Roles',
+  '12 - Admin - Despacho (lotes/rutas)',
   'Flujo Cliente (ejecutar en orden)',
-  'Flujo Admin (ejecutar en orden)'
+  'Flujo Admin (ejecutar en orden)',
+  'Flujo Completo E2E'
 ];
 const sorted = [];
 for (const n of order) {
@@ -360,11 +512,14 @@ for (const f of col.item) {
 col.item = sorted;
 
 col.info.description =
-  'Colección Ecommerce API — paridad ampliada con spec Laravel.\n\n' +
-  '**Inicio:** 00 - Setup → Login Admin o Cliente (guarda accessToken).\n\n' +
-  '**Tienda:** catálogo home/covers/slugs, carrito guest+merge, direcciones, checkout (addressId o inline).\n\n' +
-  '**Admin:** dashboard/stats, covers, envíos, opciones por producto.\n\n' +
-  'Seed: admin@ecommerce.local / Admin123! · cliente@ecommerce.local / Cliente123! · slug audifonos-pro-x';
+  'Colección Ecommerce API — flujo tienda + admin + despacho.\n\n' +
+  '**Setup:** `scriptsSql/run-all.ps1` → seed E2E → `00 - Setup` → Login.\n\n' +
+  '**Runner E2E:** carpeta **Flujo Completo E2E** (compra → pago → despacho → PDF).\n\n' +
+  'Usuarios seed:\n' +
+  '- admin@ecommerce.local / Admin123!\n' +
+  '- cliente@ecommerce.local / Cliente123!\n' +
+  '- repartidor@ecommerce.local / Repartidor123!\n\n' +
+  'Variables seed: productSlug=audifonos-pro-x, addressId fijo, cupón WELCOME10.';
 
 fs.writeFileSync(collectionPath, JSON.stringify(col, null, 2) + '\n');
 console.log('OK:', collectionPath);

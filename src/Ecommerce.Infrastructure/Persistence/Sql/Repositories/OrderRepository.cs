@@ -1,6 +1,8 @@
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Domain.Emums;
+using Ecommerce.Infrastructure.Persistence.Sql.Common;
+using System.Linq.Expressions;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql.Repositories;
 
@@ -30,12 +32,21 @@ public class OrderRepository(EcommerceDbContext db) : IOrderRepository
             .Include(o => o.Payment)
             .ToListAsync(ct);
 
-    public async Task<(List<Order> Items, int Total)> ListAdminAsync(int page, int pageSize, OrderStatus? status, CancellationToken ct = default)
+    public async Task<(List<Order> Items, int Total)> ListAdminAsync(
+        int page, int pageSize, OrderStatus? status, string? sortBy, string sortDirection, CancellationToken ct = default)
     {
         var q = db.Orders.AsNoTracking().AsQueryable();
         if (status.HasValue) q = q.Where(o => o.Status == status);
         var total = await q.CountAsync(ct);
-        var items = await q.OrderByDescending(o => o.CreatedAt)
+        var sortFields = new Dictionary<string, Expression<Func<Order, object>>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["orderNumber"] = o => o.OrderNumber,
+            ["createdAt"] = o => o.CreatedAt,
+            ["total"] = o => o.Total,
+            ["status"] = o => o.Status,
+        };
+        var items = await q
+            .OrderByField(sortBy, sortDirection, sortFields, o => o.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Include(o => o.Items)
             .Include(o => o.Shipment)

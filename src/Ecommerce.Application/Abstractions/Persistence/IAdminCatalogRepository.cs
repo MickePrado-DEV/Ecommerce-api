@@ -22,7 +22,8 @@ public interface IAdminCatalogRepository
     Task DeleteSubcategoryAsync(Guid id, CancellationToken ct = default);
 
     Task<Product?> GetProductAsync(Guid id, CancellationToken ct = default);
-    Task<(List<Product> Items, int Total)> ListProductsAsync(int page, int pageSize, CancellationToken ct = default);
+    Task<(List<Product> Items, int Total)> ListProductsAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default);
     Task<Product> SaveProductAsync(Product entity, CancellationToken ct = default);
     Task DeleteProductAsync(Guid id, CancellationToken ct = default);
 

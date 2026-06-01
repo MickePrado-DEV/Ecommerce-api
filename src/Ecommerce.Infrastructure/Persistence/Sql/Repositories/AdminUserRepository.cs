@@ -1,12 +1,24 @@
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Domain.Entities;
+using Ecommerce.Infrastructure.Persistence.Sql.Common;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql.Repositories;
 
 public class AdminUserRepository(EcommerceDbContext db) : IAdminUserRepository
 {
-    public async Task<(IReadOnlyList<User> Items, int Total)> ListAsync(int page, int pageSize, string? search, CancellationToken ct = default)
+    private static readonly Dictionary<string, Expression<Func<User, object>>> SortFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["email"] = u => u.Email,
+        ["firstName"] = u => u.FirstName,
+        ["lastName"] = u => u.LastName,
+        ["createdAt"] = u => u.CreatedAt,
+        ["isActive"] = u => u.IsActive,
+    };
+
+    public async Task<(IReadOnlyList<User> Items, int Total)> ListAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default)
     {
         var q = db.Users.AsNoTracking().Include(u => u.UserRoles).ThenInclude(ur => ur.Role).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
@@ -20,7 +32,7 @@ public class AdminUserRepository(EcommerceDbContext db) : IAdminUserRepository
 
         var total = await q.CountAsync(ct);
         var items = await q
-            .OrderByDescending(u => u.CreatedAt)
+            .OrderByField(sortBy, sortDirection, SortFields, u => u.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);

@@ -369,20 +369,6 @@ public class DeleteSubcategoryCommandHandler(IAdminCatalogRepository repo) : IRe
     }
 }
 
-public record ListProductsAdminQuery(int Page, int PageSize) : IRequest<Result<PagedProductsAdminDto>>;
-
-public class ListProductsAdminQueryHandler(IAdminCatalogRepository repo)
-    : IRequestHandler<ListProductsAdminQuery, Result<PagedProductsAdminDto>>
-{
-    public async Task<Result<PagedProductsAdminDto>> Handle(ListProductsAdminQuery request, CancellationToken ct)
-    {
-        var result = await repo.ListProductsAsync(request.Page, request.PageSize, ct);
-        return Result.Ok(new PagedProductsAdminDto(
-            result.Items.Select(p => new ProductAdminDto(p.Id, p.SubcategoryId, p.Name, p.Slug, p.Description, p.BasePrice, p.IsActive)).ToList(),
-            result.Total, request.Page, request.PageSize));
-    }
-}
-
 public record SaveProductCommand(Guid? Id, Guid SubcategoryId, string Name, string Slug, string? Description, decimal BasePrice, bool IsActive)
     : IRequest<Result<ProductAdminDto>>;
 
@@ -452,21 +438,6 @@ public class DeleteVariantCommandHandler(IAdminCatalogRepository repo) : IReques
 
 // --- Inventory ---
 
-public record ListInventoryQuery : IRequest<Result<IReadOnlyList<InventoryDto>>>;
-
-public class ListInventoryQueryHandler(IInventoryRepository inventory)
-    : IRequestHandler<ListInventoryQuery, Result<IReadOnlyList<InventoryDto>>>
-{
-    public async Task<Result<IReadOnlyList<InventoryDto>>> Handle(ListInventoryQuery request, CancellationToken ct)
-    {
-        var items = await inventory.ListAsync(ct);
-        return Result.Ok((IReadOnlyList<InventoryDto>)items.Select(i => new InventoryDto(
-            i.VariantId, i.Variant.Sku, i.Variant.Product.Name,
-            i.QuantityOnHand, i.QuantityReserved,
-            i.QuantityOnHand - i.QuantityReserved)).ToList());
-    }
-}
-
 public record SetInventoryCommand(Guid VariantId, int QuantityOnHand) : IRequest<Result<InventoryDto>>;
 
 public class SetInventoryCommandHandler(IInventoryRepository inventory)
@@ -484,21 +455,6 @@ public class SetInventoryCommandHandler(IInventoryRepository inventory)
 }
 
 // --- Orders (admin) ---
-
-public record ListAdminOrdersQuery(int Page, int PageSize, OrderStatus? Status)
-    : IRequest<Result<PagedOrdersAdminDto>>;
-
-public class ListAdminOrdersQueryHandler(IOrderRepository orders)
-    : IRequestHandler<ListAdminOrdersQuery, Result<PagedOrdersAdminDto>>
-{
-    public async Task<Result<PagedOrdersAdminDto>> Handle(ListAdminOrdersQuery request, CancellationToken ct)
-    {
-        var result = await orders.ListAdminAsync(request.Page, request.PageSize, request.Status, ct);
-        return Result.Ok(new PagedOrdersAdminDto(
-            result.Items.Select(o => new OrderSummaryDto(o.Id, o.OrderNumber, o.Status.ToString(), o.Total, o.CreatedAt)).ToList(),
-            result.Total, request.Page, request.PageSize));
-    }
-}
 
 public record GetAdminOrderQuery(Guid OrderId) : IRequest<Result<OrderDetailDto>>;
 
@@ -553,23 +509,6 @@ public class GenerateOrderTicketPdfQueryHandler(IShipmentRepository shipments, I
 }
 
 // --- Shipments & drivers ---
-
-public record ListShipmentsAdminQuery(int Page, int PageSize) : IRequest<Result<PagedShipmentsAdminDto>>;
-
-public class ListShipmentsAdminQueryHandler(IShipmentRepository shipments)
-    : IRequestHandler<ListShipmentsAdminQuery, Result<PagedShipmentsAdminDto>>
-{
-    public async Task<Result<PagedShipmentsAdminDto>> Handle(ListShipmentsAdminQuery request, CancellationToken ct)
-    {
-        var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var (list, total) = await shipments.ListAsync(page, pageSize, ct);
-        var items = list.Select(s => new ShipmentSummaryDto(
-            s.Id, s.OrderId, s.Order.OrderNumber, s.Status.ToString(), s.TrackingNumber,
-            s.Driver?.Name, s.CreatedAt)).ToList();
-        return Result.Ok(new PagedShipmentsAdminDto(items, total, page, pageSize));
-    }
-}
 
 public record CreateShipmentCommand(Guid OrderId, Guid DriverId, string? TrackingNumber)
     : IRequest<Result<ShipmentDto>>;
@@ -637,18 +576,6 @@ public class MarkShipmentDeliveredCommandHandler(IShipmentRepository shipments)
     {
         await shipments.UpdateStatusAsync(request.ShipmentId, ShipmentStatus.Delivered, ct);
         return Result.Ok();
-    }
-}
-
-public record ListDriversQuery : IRequest<Result<IReadOnlyList<DriverDto>>>;
-
-public class ListDriversQueryHandler(IShipmentRepository shipments)
-    : IRequestHandler<ListDriversQuery, Result<IReadOnlyList<DriverDto>>>
-{
-    public async Task<Result<IReadOnlyList<DriverDto>>> Handle(ListDriversQuery request, CancellationToken ct)
-    {
-        var drivers = await shipments.ListAllDriversAdminAsync(ct);
-        return Result.Ok((IReadOnlyList<DriverDto>)drivers.Select(d => AdminDriverMapping.Map(d)).ToList());
     }
 }
 
@@ -742,25 +669,6 @@ public class SetDriverTemporaryPasswordCommandHandler(IShipmentRepository shipme
             ? Result.Fail<DriverAccessCredentialsDto>(provision.Errors)
             : Result.Ok(new DriverAccessCredentialsDto(provision.Value));
     }
-}
-
-internal static class AdminDriverMapping
-{
-    public static DriverDto Map(Domain.Entities.Driver d, string? generatedTemporaryPassword = null) => new(
-        d.Id,
-        d.Name,
-        d.Phone,
-        d.Email,
-        d.LicenseNumber,
-        d.VehicleType,
-        d.VehiclePlate,
-        d.Notes,
-        d.IsActive,
-        d.UserId,
-        d.User?.Email ?? d.Email,
-        d.UserId.HasValue,
-        d.User?.MustChangePassword ?? false,
-        generatedTemporaryPassword);
 }
 
 public record DeleteDriverCommand(Guid Id) : IRequest<Result>;

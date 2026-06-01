@@ -3,6 +3,7 @@ using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Domain.Exceptions;
+using Ecommerce.Infrastructure.Persistence.Sql.Common;
 
 namespace Ecommerce.Infrastructure.Persistence.Sql.Repositories;
 
@@ -219,10 +220,26 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
     public Task<Product?> GetProductAsync(Guid id, CancellationToken ct = default) =>
         db.Products.Include(p => p.Variants).Include(p => p.Images).FirstOrDefaultAsync(p => p.Id == id, ct);
 
-    public async Task<(List<Product> Items, int Total)> ListProductsAsync(int page, int pageSize, CancellationToken ct = default)
+    public async Task<(List<Product> Items, int Total)> ListProductsAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default)
     {
-        var total = await db.Products.CountAsync(ct);
-        var items = await db.Products.OrderBy(p => p.Name)
+        var q = db.Products.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            q = q.Where(p => p.Name.ToLower().Contains(term) || p.Slug.ToLower().Contains(term));
+        }
+
+        var total = await q.CountAsync(ct);
+        var sortFields = new Dictionary<string, Expression<Func<Product, object>>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["name"] = p => p.Name,
+            ["slug"] = p => p.Slug,
+            ["basePrice"] = p => p.BasePrice,
+            ["createdAt"] = p => p.CreatedAt,
+        };
+        var items = await q
+            .OrderByField(sortBy, sortDirection, sortFields, p => p.Name)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return (items, total);
     }

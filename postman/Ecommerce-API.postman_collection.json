@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "ecommerce-api-collection",
     "name": "Ecommerce API",
-    "description": "Colección Ecommerce API — paridad ampliada con spec Laravel.\n\n**Inicio:** 00 - Setup → Login Admin o Cliente (guarda accessToken).\n\n**Tienda:** catálogo home/covers/slugs, carrito guest+merge, direcciones, checkout (addressId o inline).\n\n**Admin:** dashboard/stats, covers, envíos, opciones por producto.\n\nSeed: admin@ecommerce.local / Admin123! · cliente@ecommerce.local / Cliente123! · slug audifonos-pro-x",
+    "description": "Colección Ecommerce API — flujo tienda + admin + despacho.\n\n**Setup:** `scriptsSql/run-all.ps1` → seed E2E → `00 - Setup` → Login.\n\n**Runner E2E:** carpeta **Flujo Completo E2E** (compra → pago → despacho → PDF).\n\nUsuarios seed:\n- admin@ecommerce.local / Admin123!\n- cliente@ecommerce.local / Cliente123!\n- repartidor@ecommerce.local / Repartidor123!\n\nVariables seed: productSlug=audifonos-pro-x, addressId fijo, cupón WELCOME10.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -108,6 +108,30 @@
     {
       "key": "subcategorySlug",
       "value": "audifonos"
+    },
+    {
+      "key": "globalOptionId",
+      "value": ""
+    },
+    {
+      "key": "roleId",
+      "value": ""
+    },
+    {
+      "key": "batchId",
+      "value": ""
+    },
+    {
+      "key": "routeId",
+      "value": ""
+    },
+    {
+      "key": "stopId",
+      "value": ""
+    },
+    {
+      "key": "couponCode",
+      "value": "WELCOME10"
     }
   ],
   "item": [
@@ -1316,6 +1340,32 @@
             "url": "{{baseUrl}}/api/v1/admin/catalog/families/{{familyId}}",
             "description": "DELETE `{{familyId}}`."
           }
+        },
+        {
+          "name": "Listar productos (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/catalog/products?page=1&pageSize=20&search=&sortBy=name&sortDirection=asc",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const item = j.items?.[0] || j[0];",
+                  "if (item?.id) {",
+                  "  pm.collectionVariables.set('productId', item.id);",
+                  "  try { pm.environment.set('productId', item.id); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1360,6 +1410,38 @@
             "header": [],
             "url": "{{baseUrl}}/api/v1/admin/inventory/{{variantId}}",
             "description": "Detalle inventario de una variante."
+          }
+        },
+        {
+          "name": "Listar inventario (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/inventory?page=1&pageSize=20&sortBy=sku&sortDirection=asc",
+            "description": ""
+          }
+        },
+        {
+          "name": "Ajustar stock",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/inventory/{{variantId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityOnHand\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         }
       ]
@@ -1582,6 +1664,92 @@
             "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ready-to-dispatch",
             "description": "Paid → ReadyToDispatch"
           }
+        },
+        {
+          "name": "Listar pedidos (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc",
+            "description": "Respuesta paginada estándar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const item = j.items?.[0] || j[0];",
+                  "if (item?.id) {",
+                  "  pm.collectionVariables.set('orderId', item.id);",
+                  "  try { pm.environment.set('orderId', item.id); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar envíos (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/shipments?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc",
+            "description": "Listado paginado con sort."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const item = j.items?.[0] || j[0];",
+                  "if (item?.id) {",
+                  "  pm.collectionVariables.set('shipmentId', item.id);",
+                  "  try { pm.environment.set('shipmentId', item.id); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar conductores (select)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const list = Array.isArray(j) ? j : (j.items || []);",
+                  "if (list.length) {",
+                  "  pm.collectionVariables.set('driverId', list[0].id);",
+                  "  try { pm.environment.set('driverId', list[0].id); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/drivers/options",
+            "description": "Lista completa para selects (crear envío)."
+          }
+        },
+        {
+          "name": "Listar conductores (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers?page=1&pageSize=20&sortBy=name&sortDirection=asc",
+            "description": ""
+          }
         }
       ]
     },
@@ -1706,38 +1874,75 @@
       "description": "Requiere **Login Admin**."
     },
     {
-      "name": "10 - Admin - Opciones producto",
+      "name": "10 - Admin - Opciones globales",
       "item": [
         {
-          "name": "Listar opciones",
+          "name": "Listar opciones globales",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/options",
+            "url": "{{baseUrl}}/api/v1/admin/options",
             "description": ""
           }
         },
         {
-          "name": "Crear opción",
+          "name": "Listar asignaciones producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/option-assignments",
+            "description": ""
+          }
+        },
+        {
+          "name": "Listar variantes producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/variants",
+            "description": ""
+          }
+        },
+        {
+          "name": "Generar variantes",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/options",
-            "description": "",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Color\",\n  \"sortOrder\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/variants/generate",
+            "description": ""
+          }
+        }
+      ],
+      "description": "Catálogo global Talla/Color/Sexo + asignaciones por producto."
+    },
+    {
+      "name": "11 - Admin - Usuarios y Roles",
+      "item": [
+        {
+          "name": "Listar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/users?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc",
+            "description": ""
+          }
+        },
+        {
+          "name": "Obtener usuario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+            "description": ""
+          }
+        },
+        {
+          "name": "Listar roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/roles",
+            "description": ""
           },
           "event": [
             {
@@ -1745,37 +1950,80 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200) pm.collectionVariables.set('optionId', pm.response.json().id);"
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const item = j.items?.[0] || j[0];",
+                  "if (item?.id) {",
+                  "  pm.collectionVariables.set('roleId', item.id);",
+                  "  try { pm.environment.set('roleId', item.id); } catch(e) {}",
+                  "}"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Agregar valor opción",
+          "name": "Listar permisos",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/products/{{productId}}/options/{{optionId}}/values",
-            "description": "",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"value\": \"Negro\",\n  \"sortOrder\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/permissions",
+            "description": ""
+          }
+        },
+        {
+          "name": "Permisos de rol",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/roles/{{roleId}}",
+            "description": ""
           }
         }
       ],
-      "description": "Necesita {{productId}} del listado admin."
+      "description": "Requiere Login Admin."
+    },
+    {
+      "name": "12 - Admin - Despacho (lotes/rutas)",
+      "item": [
+        {
+          "name": "Config despacho",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/dispatch/settings",
+            "description": ""
+          }
+        },
+        {
+          "name": "Cola despacho",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/dispatch/queue?page=1&pageSize=20",
+            "description": ""
+          }
+        },
+        {
+          "name": "Listar lotes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/dispatch/batches",
+            "description": ""
+          }
+        },
+        {
+          "name": "Listar rutas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/dispatch/routes",
+            "description": ""
+          }
+        }
+      ],
+      "description": "Pedidos ReadyToDispatch + geo en direcciones."
     },
     {
       "name": "Flujo Cliente (ejecutar en orden)",
@@ -1971,15 +2219,20 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200 && pm.response.json().items?.length)",
-                  "  pm.environment.set('orderId', pm.response.json().items[0].id);"
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const item = j.items?.[0] || j[0];",
+                  "if (item?.id) {",
+                  "  pm.collectionVariables.set('orderId', item.id);",
+                  "  try { pm.environment.set('orderId', item.id); } catch(e) {}",
+                  "}"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=10&status=Paid",
+            "url": "{{baseUrl}}/api/v1/admin/orders?page=1&pageSize=10&status=Paid&sortBy=createdAt&sortDirection=desc",
             "description": "Filtra status=Paid. Guarda orderId."
           }
         },
@@ -1999,15 +2252,20 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200 && pm.response.json().length)",
-                  "  pm.environment.set('driverId', pm.response.json()[0].id);"
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const list = Array.isArray(j) ? j : (j.items || []);",
+                  "if (list.length) {",
+                  "  pm.collectionVariables.set('driverId', list[0].id);",
+                  "  try { pm.environment.set('driverId', list[0].id); } catch(e) {}",
+                  "}"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/v1/admin/drivers",
+            "url": "{{baseUrl}}/api/v1/admin/drivers/options",
             "description": "Guarda driverId."
           }
         },
@@ -2054,6 +2312,267 @@
           }
         }
       ]
+    },
+    {
+      "name": "Flujo Completo E2E",
+      "item": [
+        {
+          "name": "0. Ready BD",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ready",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "1. Login Cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@ecommerce.local\",\n  \"password\": \"Cliente123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code===200){const j=pm.response.json();['accessToken','refreshToken','customerToken'].forEach(k=>pm.collectionVariables.set(k,j.accessToken));}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Detalle producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/catalog/products/{{productSlug}}",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(pm.response.code===200&&pm.response.json().variants?.length){pm.collectionVariables.set('variantId',pm.response.json().variants[0].id);}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Agregar carrito",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/items",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "4. Checkout addressId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checkout",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"shippingCost\": 99.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('orderId', j.orderId);",
+                  "  try { pm.environment.set('orderId', j.orderId); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Pagar pedido",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/pay",
+            "description": ""
+          }
+        },
+        {
+          "name": "6. Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@ecommerce.local\",\n  \"password\": \"Admin123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(pm.response.code===200){pm.collectionVariables.set('accessToken',pm.response.json().accessToken);}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Listo despacho",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/ready",
+            "description": ""
+          }
+        },
+        {
+          "name": "8. Conductores options",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const j = pm.response.json();",
+                  "const list = Array.isArray(j) ? j : (j.items || []);",
+                  "if (list.length) {",
+                  "  pm.collectionVariables.set('driverId', list[0].id);",
+                  "  try { pm.environment.set('driverId', list[0].id); } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/drivers/options"
+          }
+        },
+        {
+          "name": "9. Crear envío",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/shipments",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"trackingNumber\": \"E2E-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(pm.response.code===200) pm.collectionVariables.set('shipmentId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Ticket PDF envío",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/shipments/{{shipmentId}}/ticket.pdf",
+            "description": ""
+          }
+        }
+      ],
+      "description": "Ejecutar carpeta completa con Runner. Seed: scriptsSql/seed-flow.sqlserver.sql"
     }
   ]
 }

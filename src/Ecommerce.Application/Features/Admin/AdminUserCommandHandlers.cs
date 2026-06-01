@@ -8,37 +8,6 @@ using MediatR;
 
 namespace Ecommerce.Application.Features.Admin;
 
-public record ListUsersAdminQuery(int Page = 1, int PageSize = 20, string? Search = null)
-    : IRequest<Result<PagedUsersAdminDto>>;
-
-public class ListUsersAdminQueryHandler(IAdminUserRepository repo)
-    : IRequestHandler<ListUsersAdminQuery, Result<PagedUsersAdminDto>>
-{
-    public async Task<Result<PagedUsersAdminDto>> Handle(ListUsersAdminQuery request, CancellationToken ct)
-    {
-        var (items, total) = await repo.ListAsync(request.Page, request.PageSize, request.Search, ct);
-        var dtos = items.Select(MapUser).ToList();
-        return Result.Ok(new PagedUsersAdminDto(dtos, total, request.Page, request.PageSize));
-    }
-
-    internal static UserAdminDto MapUser(User u) => new(
-        u.Id, u.Email, u.FirstName, u.LastName, u.Phone, u.IsActive, u.Roles, u.CreatedAt);
-}
-
-public record GetUserAdminQuery(Guid Id) : IRequest<Result<UserAdminDto>>;
-
-public class GetUserAdminQueryHandler(IAdminUserRepository repo)
-    : IRequestHandler<GetUserAdminQuery, Result<UserAdminDto>>
-{
-    public async Task<Result<UserAdminDto>> Handle(GetUserAdminQuery request, CancellationToken ct)
-    {
-        var user = await repo.GetByIdAsync(request.Id, ct);
-        return user is null
-            ? Result.Fail<UserAdminDto>(AdminErrors.NotFound("User", request.Id))
-            : Result.Ok(ListUsersAdminQueryHandler.MapUser(user));
-    }
-}
-
 public record CreateUserAdminCommand(
     string Email,
     string Password,
@@ -57,7 +26,7 @@ public class CreateUserAdminCommandHandler(IAdminUserRepository repo, IUserRepos
         if (await users.EmailExistsAsync(email, ct))
             return Result.Fail<UserAdminDto>(AdminErrors.Conflict("El email ya está registrado."));
 
-        var roleValidation = await ValidateRoleCodesAsync(request.RoleCodes, ct);
+        var roleValidation = await AdminUserRoleValidation.ValidateRoleCodesAsync(request.RoleCodes, ct);
         if (roleValidation.IsFailed)
             return Result.Fail<UserAdminDto>(roleValidation.Errors);
 
@@ -71,20 +40,7 @@ public class CreateUserAdminCommandHandler(IAdminUserRepository repo, IUserRepos
             IsActive = request.IsActive,
         }, request.RoleCodes, ct);
 
-        return Result.Ok(ListUsersAdminQueryHandler.MapUser(user));
-    }
-
-    internal static async Task<Result> ValidateRoleCodesAsync(IReadOnlyList<string> roleCodes, CancellationToken ct)
-    {
-        if (roleCodes.Count == 0)
-            return Result.Fail(AdminErrors.Validation("Asigna al menos un rol."));
-
-        var validCodes = new HashSet<string>(RoleCodes.All, StringComparer.Ordinal);
-        var invalid = roleCodes.Where(c => !validCodes.Contains(c)).Distinct().ToList();
-        if (invalid.Count > 0)
-            return Result.Fail(AdminErrors.Validation($"Roles inválidos: {string.Join(", ", invalid)}"));
-
-        return Result.Ok();
+        return Result.Ok(AdminUserMapping.MapUser(user));
     }
 }
 
@@ -105,7 +61,7 @@ public class UpdateUserAdminCommandHandler(IAdminUserRepository repo)
 
         if (request.RoleCodes is not null)
         {
-            var roleValidation = await CreateUserAdminCommandHandler.ValidateRoleCodesAsync(request.RoleCodes, ct);
+            var roleValidation = await AdminUserRoleValidation.ValidateRoleCodesAsync(request.RoleCodes, ct);
             if (roleValidation.IsFailed)
                 return Result.Fail<UserAdminDto>(roleValidation.Errors);
 
@@ -132,6 +88,6 @@ public class UpdateUserAdminCommandHandler(IAdminUserRepository repo)
         var updated = await repo.GetByIdAsync(request.Id, ct);
         return updated is null
             ? Result.Fail<UserAdminDto>(AdminErrors.NotFound("User", request.Id))
-            : Result.Ok(ListUsersAdminQueryHandler.MapUser(updated));
+            : Result.Ok(AdminUserMapping.MapUser(updated));
     }
 }

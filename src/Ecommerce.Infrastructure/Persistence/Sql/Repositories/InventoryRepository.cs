@@ -11,70 +11,14 @@ public class InventoryRepository(EcommerceDbContext db) : IInventoryRepository
         db.Inventories.Include(i => i.Variant).ThenInclude(v => v.Product)
             .FirstOrDefaultAsync(i => i.VariantId == variantId, ct);
 
-    public async Task ReserveAsync(Guid orderId, IEnumerable<(Guid VariantId, int Quantity)> items, DateTime expiresAt, CancellationToken ct = default)
-    {
-        foreach (var (variantId, quantity) in items)
-        {
-            var inv = await db.Inventories.FirstOrDefaultAsync(i => i.VariantId == variantId, ct)
-                ?? throw new NotFoundException("Inventory", variantId);
+    public Task ReserveAsync(Guid orderId, IEnumerable<(Guid VariantId, int Quantity)> items, DateTime expiresAt, CancellationToken ct = default) =>
+        InventoryReservationQueries.ReserveAsync(db, orderId, items, expiresAt, ct);
 
-            if (inv.QuantityOnHand - inv.QuantityReserved < quantity)
-                throw new InsufficientStockException(variantId);
+    public Task CommitReservationAsync(Guid orderId, CancellationToken ct = default) =>
+        InventoryReservationQueries.CommitReservationAsync(db, orderId, ct);
 
-            inv.QuantityReserved += quantity;
-            db.StockReservations.Add(new StockReservation
-            {
-                OrderId = orderId,
-                VariantId = variantId,
-                Quantity = quantity,
-                ExpiresAt = expiresAt
-            });
-            db.StockMovements.Add(new StockMovement
-            {
-                VariantId = variantId,
-                Type = StockMovementType.Reservation,
-                Quantity = quantity,
-                Reference = orderId.ToString()
-            });
-        }
-    }
-
-    public async Task CommitReservationAsync(Guid orderId, CancellationToken ct = default)
-    {
-        var reservations = await db.StockReservations.Where(r => r.OrderId == orderId).ToListAsync(ct);
-        foreach (var res in reservations)
-        {
-            var inv = await db.Inventories.FirstAsync(i => i.VariantId == res.VariantId, ct);
-            inv.QuantityReserved -= res.Quantity;
-            inv.QuantityOnHand -= res.Quantity;
-            db.StockMovements.Add(new StockMovement
-            {
-                VariantId = res.VariantId,
-                Type = StockMovementType.Sale,
-                Quantity = -res.Quantity,
-                Reference = orderId.ToString()
-            });
-        }
-        db.StockReservations.RemoveRange(reservations);
-    }
-
-    public async Task ReleaseReservationAsync(Guid orderId, CancellationToken ct = default)
-    {
-        var reservations = await db.StockReservations.Where(r => r.OrderId == orderId).ToListAsync(ct);
-        foreach (var res in reservations)
-        {
-            var inv = await db.Inventories.FirstAsync(i => i.VariantId == res.VariantId, ct);
-            inv.QuantityReserved -= res.Quantity;
-            db.StockMovements.Add(new StockMovement
-            {
-                VariantId = res.VariantId,
-                Type = StockMovementType.Return,
-                Quantity = res.Quantity,
-                Reference = orderId.ToString()
-            });
-        }
-        db.StockReservations.RemoveRange(reservations);
-    }
+    public Task ReleaseReservationAsync(Guid orderId, CancellationToken ct = default) =>
+        InventoryReservationQueries.ReleaseReservationAsync(db, orderId, ct);
 
     public async Task AdjustAsync(Guid variantId, int deltaOnHand, int deltaReserved, StockMovementType type, string? reference, CancellationToken ct = default)
     {
@@ -87,25 +31,22 @@ public class InventoryRepository(EcommerceDbContext db) : IInventoryRepository
             VariantId = variantId,
             Type = type,
             Quantity = deltaOnHand != 0 ? deltaOnHand : deltaReserved,
-            Reference = reference
+            Reference = reference,
         });
         await db.SaveChangesAsync(ct);
     }
 
-    public Task<List<Inventory>> ListAsync(CancellationToken ct = default) =>
-        db.Inventories.Include(i => i.Variant).ThenInclude(v => v.Product).ToListAsync(ct);
+    public Task<(List<Inventory> Items, int Total)> ListPagedAsync(
+        int page, int pageSize, string? search, string? sortBy, string sortDirection, CancellationToken ct = default) =>
+        InventoryListQueries.ListPagedAsync(db, page, pageSize, search, sortBy, sortDirection, ct);
 
     public async Task UpsertAsync(Guid variantId, int quantityOnHand, CancellationToken ct = default)
     {
         var inv = await db.Inventories.FindAsync([variantId], ct);
         if (inv is null)
-        {
             db.Inventories.Add(new Inventory { VariantId = variantId, QuantityOnHand = quantityOnHand });
-        }
         else
-        {
             inv.QuantityOnHand = quantityOnHand;
-        }
         await db.SaveChangesAsync(ct);
     }
 }

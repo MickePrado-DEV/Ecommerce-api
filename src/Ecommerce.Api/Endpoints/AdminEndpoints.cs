@@ -10,6 +10,7 @@ using Ecommerce.Application.DTOs.Inventory;
 using Ecommerce.Application.DTOs.Shipments;
 using Ecommerce.Application.DTOs.Dispatch;
 using Ecommerce.Application.Features.Admin;
+using Ecommerce.Application.Features.Admin.Lists;
 using Ecommerce.Application.Features.Dispatch;
 using Ecommerce.Domain.Emums;
 using MediatR;
@@ -187,8 +188,11 @@ public static class AdminEndpoints
             (await sender.Send(new DeleteSubcategoryCommand(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.SubcategoriesManage);
 
-        catalog.MapGet("/products", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListProductsAdminQuery(page, pageSize), ct)).ToHttpResult())
+        catalog.MapGet("/products", async (
+            int page, int pageSize, string? search, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductsAdminQuery(
+                page, pageSize, search, sortBy, sortDirection ?? "asc"), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ProductsView);
 
         catalog.MapPost("/products", async (SaveProductRequest req, ISender sender, CancellationToken ct) =>
@@ -235,8 +239,11 @@ public static class AdminEndpoints
             (await sender.Send(new DeleteFamilyCommand(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesManage);
 
-        admin.MapGet("/products", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListProductsAdminQuery(page, pageSize), ct)).ToHttpResult())
+        admin.MapGet("/products", async (
+            int page, int pageSize, string? search, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductsAdminQuery(
+                page, pageSize, search, sortBy, sortDirection ?? "asc"), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ProductsView);
     }
 
@@ -305,17 +312,16 @@ public static class AdminEndpoints
     {
         var stock = admin.MapGroup("/inventory");
 
-        stock.MapGet("/", async (ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListInventoryQuery(), ct)).ToHttpResult())
+        stock.MapGet("/", async (
+            int page, int pageSize, string? search, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListInventoryAdminQuery(
+                page, pageSize, search, sortBy, sortDirection ?? "asc"), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.StockView);
 
         stock.MapGet("/{variantId:guid}", async (Guid variantId, ISender sender, CancellationToken ct) =>
-        {
-            var result = await sender.Send(new ListInventoryQuery(), ct);
-            if (result.IsFailed) return result.ToHttpResult();
-            var item = result.Value.FirstOrDefault(i => i.VariantId == variantId);
-            return item is null ? Results.NotFound() : Results.Ok(item);
-        }).RequireAuthorization(AdminPermissions.StockView);
+            (await sender.Send(new GetInventoryByVariantQuery(variantId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.StockView);
 
         stock.MapPut("/{variantId:guid}", async (Guid variantId, SetInventoryRequest req, ISender sender, CancellationToken ct) =>
             (await sender.Send(new SetInventoryCommand(variantId, req.QuantityOnHand), ct)).ToHttpResult())
@@ -331,10 +337,13 @@ public static class AdminEndpoints
     {
         var orders = admin.MapGroup("/orders");
 
-        orders.MapGet("/", async (int page, int pageSize, string? status, ISender sender, CancellationToken ct) =>
+        orders.MapGet("/", async (
+            int page, int pageSize, string? status, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
         {
             OrderStatus? st = Enum.TryParse<OrderStatus>(status, true, out var parsed) ? parsed : null;
-            return (await sender.Send(new ListAdminOrdersQuery(page, pageSize, st), ct)).ToHttpResult();
+            return (await sender.Send(new ListOrdersAdminQuery(
+                page, pageSize, st, sortBy, sortDirection ?? "desc"), ct)).ToHttpResult();
         }).RequireAuthorization(AdminPermissions.OrdersView);
 
         orders.MapGet("/{orderId:guid}", async (Guid orderId, ISender sender, CancellationToken ct) =>
@@ -360,8 +369,11 @@ public static class AdminEndpoints
     {
         var shipments = admin.MapGroup("/shipments");
 
-        shipments.MapGet("/", async (int page, int pageSize, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListShipmentsAdminQuery(page, pageSize), ct)).ToHttpResult())
+        shipments.MapGet("/", async (
+            int page, int pageSize, string? search, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListShipmentsAdminQuery(
+                page, pageSize, search, sortBy, sortDirection ?? "desc"), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.ShipmentsView);
 
         shipments.MapPost("/", async (CreateShipmentRequest req, ISender sender, CancellationToken ct) =>
@@ -382,8 +394,15 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.ShipmentsManage);
 
         var drivers = admin.MapGroup("/drivers");
-        drivers.MapGet("/", async (ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListDriversQuery(), ct)).ToHttpResult())
+        drivers.MapGet("/", async (
+            int page, int pageSize, string? search, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListDriversAdminQuery(
+                page, pageSize, search, sortBy, sortDirection ?? "asc"), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DriversView);
+
+        drivers.MapGet("/options", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListDriversOptionsQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DriversView);
 
         drivers.MapPost("/", async (SaveDriverRequest req, ISender sender, CancellationToken ct) =>
@@ -497,8 +516,11 @@ public static class AdminEndpoints
     {
         var users = admin.MapGroup("/users");
 
-        users.MapGet("/", async (int page, int pageSize, string? search, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListUsersAdminQuery(page, pageSize, search), ct)).ToHttpResult())
+        users.MapGet("/", async (
+            int page, int pageSize, string? search, string? sortBy, string? sortDirection,
+            ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListUsersAdminQuery(
+                page, pageSize, search, sortBy, sortDirection ?? "desc"), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.UsersView);
 
         users.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
