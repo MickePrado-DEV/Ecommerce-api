@@ -16,4 +16,8 @@ public interface IUserRepository
     Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken ct = default);
     Task UpdateProfileAsync(Guid userId, string firstName, string lastName, string? phone, CancellationToken ct = default);
     Task UpdatePasswordHashAsync(Guid userId, string passwordHash, CancellationToken ct = default);
+    Task SetTemporaryPasswordAsync(Guid userId, string temporaryPasswordPlain, CancellationToken ct = default);
+    Task CompleteMandatoryPasswordChangeAsync(Guid userId, string passwordHash, CancellationToken ct = default);
+    Task UpdateEmailAsync(Guid userId, string email, CancellationToken ct = default);
+    Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default);
 }

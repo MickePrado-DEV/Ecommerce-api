@@ -15,5 +15,6 @@ namespace Ecommerce.Domain.Entities
         public ICollection<Variant> Variants { get; set; } = [];
         public ICollection<ProductImage> Images { get; set; } = [];
         public ICollection<ProductReview> Reviews { get; set; } = [];
+        public ICollection<ProductOptionAssignment> OptionAssignments { get; set; } = [];
     }
 }

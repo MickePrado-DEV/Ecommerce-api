@@ -14,4 +14,6 @@ public interface ICoverRepository
     Task<int> CountEffectiveActiveAsync(Guid? excludeId, CancellationToken ct = default);
     Task<int?> GetNextPrincipalOrderAsync(CancellationToken ct = default);
     Task DeactivateExpiredAsync(CancellationToken ct = default);
+    /// <summary>Renumera portadas principales activas a 1..n sin huecos.</summary>
+    Task CompactPrincipalOrderAsync(CancellationToken ct = default);
 }

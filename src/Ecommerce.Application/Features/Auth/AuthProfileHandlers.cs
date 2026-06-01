@@ -32,15 +32,45 @@ public class ChangePasswordCommandHandler(IUserRepository users) : IRequestHandl
 {
     public async Task<Result> Handle(ChangePasswordCommand request, CancellationToken ct)
     {
-        var user = await users.GetByIdWithRolesAsync(request.UserId, ct);
+        var user = await users.GetByIdAsync(request.UserId, ct);
         if (user is null)
             return Result.Fail(AuthErrors.UserNotFound());
 
-        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+        var currentOk = user.MustChangePassword
+            && !string.IsNullOrEmpty(user.TemporaryPasswordPlain)
+            && string.Equals(request.CurrentPassword, user.TemporaryPasswordPlain, StringComparison.Ordinal)
+            || BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash);
+
+        if (!currentOk)
             return Result.Fail(AuthErrors.InvalidCurrentPassword());
 
         var hash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        await users.UpdatePasswordHashAsync(request.UserId, hash, ct);
+        if (user.MustChangePassword)
+            await users.CompleteMandatoryPasswordChangeAsync(request.UserId, hash, ct);
+        else
+            await users.UpdatePasswordHashAsync(request.UserId, hash, ct);
+
+        await users.RevokeRefreshTokensAsync(request.UserId, ct);
+        return Result.Ok();
+    }
+}
+
+public record MandatoryChangePasswordCommand(Guid UserId, string NewPassword) : IRequest<Result>;
+
+public class MandatoryChangePasswordCommandHandler(IUserRepository users)
+    : IRequestHandler<MandatoryChangePasswordCommand, Result>
+{
+    public async Task<Result> Handle(MandatoryChangePasswordCommand request, CancellationToken ct)
+    {
+        var user = await users.GetByIdAsync(request.UserId, ct);
+        if (user is null)
+            return Result.Fail(AuthErrors.UserNotFound());
+
+        if (!user.MustChangePassword)
+            return Result.Fail(AuthErrors.InvalidState("No se requiere cambio de contraseña."));
+
+        var hash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        await users.CompleteMandatoryPasswordChangeAsync(request.UserId, hash, ct);
         await users.RevokeRefreshTokensAsync(request.UserId, ct);
         return Result.Ok();
     }

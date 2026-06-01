@@ -61,6 +61,23 @@ public class OrderReadRepository(EcommerceDbContext db) : IOrderReadRepository
             order.Shipment.Driver?.Name,
             order.Shipment.ShippedAt);
 
-        return new OrderTrackingDto(order.Id, order.OrderNumber, order.Status.ToString(), shipment);
+        string? dispatchDriverName = null;
+        if (order.Shipment is null && order.DispatchStatus is not DispatchStatus.Pending and not DispatchStatus.Paid)
+        {
+            var stop = await db.DeliveryRouteStops.AsNoTracking()
+                .Include(s => s.Route).ThenInclude(r => r!.Driver)
+                .Where(s => s.OrderId == orderId)
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+            dispatchDriverName = stop?.Route?.Driver?.Name;
+        }
+
+        return new OrderTrackingDto(
+            order.Id,
+            order.OrderNumber,
+            order.Status.ToString(),
+            shipment,
+            order.DispatchStatus.ToString(),
+            dispatchDriverName);
     }
 }

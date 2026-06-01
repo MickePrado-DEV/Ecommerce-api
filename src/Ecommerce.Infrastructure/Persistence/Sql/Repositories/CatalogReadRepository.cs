@@ -1,6 +1,7 @@
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.Common;
 using Ecommerce.Application.DTOs.Catalog;
+using Ecommerce.Application.Common;
 using Ecommerce.Application.Mapping;
 using Ecommerce.Domain.Entities;
 
@@ -114,13 +115,23 @@ public class CatalogReadRepository(EcommerceDbContext db) : ICatalogReadReposito
             .FirstOrDefaultAsync(p => p.Slug == slug && p.IsActive, ct);
         if (product is null) return null;
 
-        var options = await db.ProductOptions.AsNoTracking()
-            .Where(o => o.ProductId == product.Id)
-            .Include(o => o.Values)
-            .OrderBy(o => o.SortOrder)
+        var assignments = await db.ProductOptionAssignments.AsNoTracking()
+            .Where(a => a.ProductId == product.Id)
+            .Include(a => a.ProductOption).ThenInclude(o => o.Values)
+            .OrderBy(a => a.ProductOption.SortOrder)
             .ToListAsync(ct);
 
-        return product.ToDetail(options.Select(o => o.ToCatalogOption()).ToList());
+        var options = assignments.Select(a =>
+        {
+            var selectedIds = OptionFeatureJson.Deserialize(a.FeaturesJson).Select(f => f.Id).ToHashSet();
+            var values = a.ProductOption.Values
+                .Where(v => selectedIds.Contains(v.Id))
+                .OrderBy(v => v.SortOrder)
+                .ToList();
+            return a.ProductOption.ToCatalogOption(values);
+        }).ToList();
+
+        return product.ToDetail(options);
     }
 
     public async Task<ResolvedVariantDto?> ResolveVariantAsync(string slug, IReadOnlyList<Guid> optionValueIds, CancellationToken ct = default)
@@ -246,7 +257,7 @@ public class CatalogReadRepository(EcommerceDbContext db) : ICatalogReadReposito
                 g.First().Name,
                 g.First().OptionSort,
                 g.OrderBy(x => x.ValueSort)
-                    .Select(x => new CatalogOptionValueDto(x.Id, x.Value, x.ValueSort))
+                    .Select(x => new CatalogOptionValueDto(x.Id, x.Value, null, x.ValueSort))
                     .DistinctBy(x => x.Id)
                     .ToList()))
             .ToList();

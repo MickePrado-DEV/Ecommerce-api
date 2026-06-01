@@ -12,5 +12,8 @@ public class OrderAddress : BaseEntity
     public string PostalCode { get; set; } = null!;
     public string Country { get; set; } = null!;
     public string Phone { get; set; } = null!;
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public string? AddressText { get; set; }
     public Order Order { get; set; } = null!;
 }

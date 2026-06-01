@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IAddressWriteRepository, AddressWriteRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAdminUserRepository, AdminUserRepository>();
+        services.AddScoped<IAdminRoleRepository, AdminRoleRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IOrderReadRepository, OrderReadRepository>();
@@ -65,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IWishlistRepository, WishlistRepository>();
         services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
         services.AddScoped<ICouponRepository, CouponRepository>();
+        services.AddScoped<IDispatchRepository, DispatchRepository>();
 
         // Servicios de infraestructura usados por handlers
         services.AddScoped<IJwtTokenService, JwtTokenService>();

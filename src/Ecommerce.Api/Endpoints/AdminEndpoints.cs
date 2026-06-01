@@ -1,14 +1,19 @@
 // Panel admin: dashboard, covers, catálogo, inventario, pedidos, envíos, conductores, opciones.
 // Cada ruta exige JWT + permiso concreto (AdminPermissions.*).
 using Ecommerce.Api.Extensions;
+using static Ecommerce.Api.Extensions.AdminTableQueryBinding;
 using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Authorization;
 using Ecommerce.Application.DTOs.Admin;
+using Ecommerce.Application.DTOs.Auth;
 using Ecommerce.Application.DTOs.Inventory;
 using Ecommerce.Application.DTOs.Shipments;
+using Ecommerce.Application.DTOs.Dispatch;
 using Ecommerce.Application.Features.Admin;
+using Ecommerce.Application.Features.Dispatch;
 using Ecommerce.Domain.Emums;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 
 namespace Ecommerce.Api.Endpoints;
 
@@ -32,8 +37,10 @@ public static class AdminEndpoints
         MapInventoryAdmin(admin);
         MapOrdersAdmin(admin);
         MapShipmentsAdmin(admin);
+        MapDispatchAdmin(admin);
         MapProductOptionsAdmin(admin);
         MapUsersAdmin(admin);
+        MapRolesAdmin(admin);
 
         return group;
     }
@@ -98,10 +105,15 @@ public static class AdminEndpoints
             string? sortKey,
             string? sortDir,
             string? search,
+            string? initials,
+            string? idBuckets,
             ISender sender,
             CancellationToken ct) =>
             (await sender.Send(new ListFamiliesPagedAdminQuery(
-                new AdminTableQueryParams(page, pageSize, sortKey, sortDir ?? "asc", search)), ct)).ToHttpResult())
+                new AdminTableQueryParams(
+                    page, pageSize, sortKey, sortDir ?? "asc", search,
+                    NameInitials: ParseStrings(initials),
+                    IdBuckets: ParseStrings(idBuckets))), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.FamiliesView);
 
         catalog.MapGet("/categories/paged", async (
@@ -111,10 +123,13 @@ public static class AdminEndpoints
             string? sortDir,
             string? search,
             string? familyName,
+            string? familyIds,
             ISender sender,
             CancellationToken ct) =>
             (await sender.Send(new ListCategoriesPagedAdminQuery(
-                new AdminTableQueryParams(page, pageSize, sortKey, sortDir ?? "asc", search, familyName)), ct)).ToHttpResult())
+                new AdminTableQueryParams(
+                    page, pageSize, sortKey, sortDir ?? "asc", search, familyName,
+                    FamilyIds: ParseGuids(familyIds))), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.CategoriesView);
 
         catalog.MapGet("/subcategories/paged", async (
@@ -125,10 +140,15 @@ public static class AdminEndpoints
             string? search,
             string? categoryName,
             string? familyName,
+            string? familyIds,
+            string? categoryIds,
             ISender sender,
             CancellationToken ct) =>
             (await sender.Send(new ListSubcategoriesPagedAdminQuery(
-                new AdminTableQueryParams(page, pageSize, sortKey, sortDir ?? "asc", search, familyName, categoryName)), ct)).ToHttpResult())
+                new AdminTableQueryParams(
+                    page, pageSize, sortKey, sortDir ?? "asc", search, familyName, categoryName,
+                    FamilyIds: ParseGuids(familyIds),
+                    CategoryIds: ParseGuids(categoryIds))), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.SubcategoriesView);
 
         catalog.MapPost("/families", async (SaveFamilyRequest req, ISender sender, CancellationToken ct) =>
@@ -220,33 +240,60 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.ProductsView);
     }
 
-    // Opciones y valores por producto; PUT /admin/variants/{id} para variantes
+    // Opciones globales + asignaciones por producto (flujo Laravel)
     private static void MapProductOptionsAdmin(RouteGroupBuilder admin)
     {
-        admin.MapGet("/products/{productId:guid}/options", async (Guid productId, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new ListProductOptionsQuery(productId), ct)).ToHttpResult())
+        admin.MapGet("/options", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListGlobalOptionsQuery(), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsView);
 
-        admin.MapPost("/products/{productId:guid}/options", async (Guid productId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveProductOptionCommand(productId, null, req.Name, req.OptionType, req.SortOrder), ct)).ToHttpResult())
+        admin.MapPost("/options", async (SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveGlobalOptionCommand(null, req.Name, req.OptionType, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
-        admin.MapPut("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveProductOptionCommand(productId, optionId, req.Name, req.OptionType, req.SortOrder), ct)).ToHttpResult())
+        admin.MapPut("/options/{optionId:guid}", async (Guid optionId, SaveProductOptionRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveGlobalOptionCommand(optionId, req.Name, req.OptionType, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
-        admin.MapDelete("/products/{productId:guid}/options/{optionId:guid}", async (Guid productId, Guid optionId, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new DeleteProductOptionCommand(productId, optionId), ct)).ToHttpResult())
+        admin.MapDelete("/options/{optionId:guid}", async (Guid optionId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteGlobalOptionCommand(optionId), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
-        admin.MapPost("/products/{productId:guid}/options/{optionId:guid}/values", async (Guid productId, Guid optionId, SaveOptionValueRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveOptionValueCommand(productId, optionId, null, req.Value, req.SortOrder), ct)).ToHttpResult())
+        admin.MapPost("/options/{optionId:guid}/values", async (Guid optionId, SaveOptionValueRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveGlobalOptionValueCommand(optionId, null, req.Value, req.Description, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
 
-        admin.MapDelete("/products/{productId:guid}/options/{optionId:guid}/values/{valueId:guid}", async (
-            Guid productId, Guid optionId, Guid valueId, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new DeleteOptionValueCommand(productId, optionId, valueId), ct)).ToHttpResult())
+        admin.MapPut("/options/{optionId:guid}/values/{valueId:guid}", async (
+            Guid optionId, Guid valueId, SaveOptionValueRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new SaveGlobalOptionValueCommand(optionId, valueId, req.Value, req.Description, req.SortOrder), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapDelete("/options/{optionId:guid}/values/{valueId:guid}", async (
+            Guid optionId, Guid valueId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DeleteGlobalOptionValueCommand(optionId, valueId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapGet("/products/{productId:guid}/option-assignments", async (Guid productId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductOptionAssignmentsQuery(productId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsView);
+
+        admin.MapPost("/products/{productId:guid}/option-assignments", async (
+            Guid productId, AttachProductOptionRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new AttachProductOptionCommand(productId, req.OptionId, req.ValueIds), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapDelete("/products/{productId:guid}/option-assignments/{optionId:guid}", async (
+            Guid productId, Guid optionId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new DetachProductOptionCommand(productId, optionId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapPost("/products/{productId:guid}/variants/generate", async (Guid productId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GenerateProductVariantsCommand(productId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsManage);
+
+        admin.MapGet("/products/{productId:guid}/variants", async (Guid productId, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListProductVariantsQuery(productId), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.OptionsView);
 
         admin.MapPut("/variants/{variantId:guid}", async (Guid variantId, SaveVariantRequest req, ISender sender, CancellationToken ct) =>
             (await sender.Send(new SaveVariantCommand(variantId, req.ProductId, req.Sku, req.Price, req.IsActive, req.InitialStock), ct)).ToHttpResult())
@@ -340,16 +387,110 @@ public static class AdminEndpoints
             .RequireAuthorization(AdminPermissions.DriversView);
 
         drivers.MapPost("/", async (SaveDriverRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveDriverCommand(req.Id, req.Name, req.Phone, req.IsActive), ct)).ToHttpResult())
+            (await sender.Send(new SaveDriverCommand(
+                req.Id, req.Name, req.Phone, req.Email, req.LicenseNumber,
+                req.VehicleType, req.VehiclePlate, req.Notes, req.IsActive, req.CreateLoginAccount), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DriversManage);
 
         drivers.MapPut("/{id:guid}", async (Guid id, SaveDriverRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new SaveDriverCommand(id, req.Name, req.Phone, req.IsActive), ct)).ToHttpResult())
+            (await sender.Send(new SaveDriverCommand(
+                id, req.Name, req.Phone, req.Email, req.LicenseNumber,
+                req.VehicleType, req.VehiclePlate, req.Notes, req.IsActive, req.CreateLoginAccount), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DriversManage);
+
+        drivers.MapPut("/{id:guid}/temporary-password", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new SetDriverTemporaryPasswordCommand(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DriversManage);
 
         drivers.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
             (await sender.Send(new DeleteDriverCommand(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.DriversManage);
+    }
+
+    private static void MapDispatchAdmin(RouteGroupBuilder admin)
+    {
+        var dispatch = admin.MapGroup("/dispatch");
+
+        dispatch.MapGet("/settings", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetDispatchSettingsQuery(), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchView);
+
+        dispatch.MapPost("/settings", async (UpdateDispatchSettingsRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new UpdateDispatchSettingsCommand(req), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapGet("/queue", async (
+            int page,
+            int pageSize,
+            DateTime? from,
+            DateTime? to,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new GetDispatchQueueQuery(new DispatchQueueFilter(from, to, page, pageSize)), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchView);
+
+        dispatch.MapPost("/batches/auto", async (AutoCreateBatchesRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new AutoCreateDispatchBatchesCommand(req), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapPost("/batches/manual", async (ManualCreateBatchRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ManualCreateDispatchBatchCommand(req), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapGet("/batches", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListDispatchBatchesQuery(), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchView);
+
+        dispatch.MapGet("/batches/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetDispatchBatchQuery(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchView);
+
+        dispatch.MapPost("/batches/{id:guid}/routes", async (
+            Guid id,
+            CreateRouteFromBatchRequest req,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new CreateRouteFromBatchCommand(id, req), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapGet("/routes", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListDeliveryRoutesQuery(), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchView);
+
+        dispatch.MapGet("/routes/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetDeliveryRouteQuery(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchView);
+
+        dispatch.MapPost("/routes/{id:guid}/assign", async (
+            Guid id,
+            AssignRouteRequest req,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new AssignDeliveryRouteCommand(id, req), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapPost("/routes/{id:guid}/start", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new StartDeliveryRouteCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapPost("/routes/{id:guid}/finish", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new FinishDeliveryRouteCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapPost("/stops/{id:guid}/delivered", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new MarkStopDeliveredCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
+
+        dispatch.MapPost("/stops/{id:guid}/failed", async (
+            Guid id,
+            FailStopRequest? req,
+            ISender sender,
+            CancellationToken ct) =>
+            (await sender.Send(new MarkStopFailedCommand(id, req), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.DispatchManage);
     }
 
     private static void MapUsersAdmin(RouteGroupBuilder admin)
@@ -364,8 +505,34 @@ public static class AdminEndpoints
             (await sender.Send(new GetUserAdminQuery(id), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.UsersView);
 
-        users.MapPut("/{id:guid}", async (Guid id, UpdateUserAdminRequest req, ISender sender, CancellationToken ct) =>
-            (await sender.Send(new UpdateUserAdminCommand(id, req.IsActive ?? true, req.RoleCodes ?? []), ct)).ToHttpResult())
+        users.MapPost("/", async (CreateUserAdminRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new CreateUserAdminCommand(
+                req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.IsActive, req.RoleCodes), ct)).ToHttpResult())
             .RequireAuthorization(AdminPermissions.UsersManage);
+
+        users.MapPut("/{id:guid}", async (Guid id, UpdateUserAdminRequest req, HttpContext ctx, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new UpdateUserAdminCommand(id, ctx.GetUserId(), req.IsActive, req.RoleCodes), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.UsersManage);
+    }
+
+    private static void MapRolesAdmin(RouteGroupBuilder admin)
+    {
+        var roles = admin.MapGroup("/roles");
+
+        roles.MapGet("/", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListRolesAdminQuery(), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.RolesView);
+
+        roles.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new GetRoleAdminQuery(id), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.RolesView);
+
+        roles.MapPut("/{id:guid}/permissions", async (Guid id, UpdateRolePermissionsRequest req, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new UpdateRolePermissionsCommand(id, req.PermissionCodes), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.RolesManage);
+
+        admin.MapGet("/permissions", async (ISender sender, CancellationToken ct) =>
+            (await sender.Send(new ListPermissionsAdminQuery(), ct)).ToHttpResult())
+            .RequireAuthorization(AdminPermissions.RolesView);
     }
 }

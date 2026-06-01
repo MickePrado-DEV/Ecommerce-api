@@ -46,8 +46,14 @@ public static class DatabaseBootstrap
     {
         try
         {
-            await db.Users.AsNoTracking().Select(u => u.IsActive).Take(1).ToListAsync(ct);
-            await db.Drivers.AsNoTracking().Select(d => d.UserId).Take(1).ToListAsync(ct);
+            await db.Users.AsNoTracking()
+                .Select(u => new { u.IsActive, u.MustChangePassword, u.TemporaryPasswordPlain })
+                .Take(1)
+                .ToListAsync(ct);
+            await db.Drivers.AsNoTracking()
+                .Select(d => new { d.UserId, d.Email, d.VehicleType, d.Notes })
+                .Take(1)
+                .ToListAsync(ct);
             await db.Coupons.AsNoTracking().Select(c => c.Code).Take(1).ToListAsync(ct);
             // Tabla addresses ampliada (Type, colonia, lat/lng, etc.)
             await db.Addresses.AsNoTracking()
@@ -58,6 +64,20 @@ public static class DatabaseBootstrap
                 .Select(c => new { c.StartsAt, c.EndsAt })
                 .Take(1)
                 .ToListAsync(ct);
+            await db.Orders.AsNoTracking()
+                .Select(o => new { o.DispatchStatus, o.ReadyAt })
+                .Take(1)
+                .ToListAsync(ct);
+            await db.OrderAddresses.AsNoTracking()
+                .Select(a => new { a.Latitude, a.Longitude })
+                .Take(1)
+                .ToListAsync(ct);
+            await db.DispatchBatches.AsNoTracking().Select(b => b.Code).Take(1).ToListAsync(ct);
+            await db.DispatchSettings.AsNoTracking().Select(s => s.DefaultClusterRadiusKm).Take(1).ToListAsync(ct);
+            await db.ProductOptionAssignments.AsNoTracking().Take(1).CountAsync(ct);
+            await db.OptionValues.AsNoTracking().Select(v => v.Description).Take(1).ToListAsync(ct);
+            if (!await ProductOptionsSchemaIsCurrentAsync(db, ct))
+                return false;
             return true;
         }
         catch (Exception ex) when (IsSchemaMismatch(ex))
@@ -66,13 +86,35 @@ public static class DatabaseBootstrap
         }
     }
 
+    private static async Task<bool> ProductOptionsSchemaIsCurrentAsync(EcommerceDbContext db, CancellationToken ct)
+    {
+        if (db.Database.IsSqlServer())
+        {
+            var hasLegacyProductId = await db.Database
+                .SqlQueryRaw<int>("SELECT CASE WHEN COL_LENGTH('product_options', 'ProductId') IS NOT NULL THEN 1 ELSE 0 END AS [Value]")
+                .FirstOrDefaultAsync(ct);
+            return hasLegacyProductId == 0;
+        }
+
+        if (db.Database.IsSqlite())
+        {
+            var columns = await db.Database
+                .SqlQueryRaw<string>("SELECT name AS \"Value\" FROM pragma_table_info('product_options')")
+                .ToListAsync(ct);
+            return !columns.Any(c => string.Equals(c, "ProductId", StringComparison.OrdinalIgnoreCase));
+        }
+
+        return true;
+    }
+
     private static bool IsSchemaMismatch(Exception ex) =>
         ex switch
         {
-            SqlException { Number: 207 } => true,
+            SqlException { Number: 207 or 208 } => true,
             _ when ex.Message.Contains("no such column", StringComparison.OrdinalIgnoreCase) => true,
             _ when ex.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase) => true,
             _ when ex.Message.Contains("Invalid column name", StringComparison.OrdinalIgnoreCase) => true,
+            _ when ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase) => true,
             { InnerException: not null } => IsSchemaMismatch(ex.InnerException),
             _ => false
         };

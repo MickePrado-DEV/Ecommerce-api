@@ -6,4 +6,6 @@ public static class RoleCodes
     public const string Admin = "admin";
     public const string Customer = "customer";
     public const string Driver = "driver";
+
+    public static readonly string[] All = [Admin, Customer, Driver];
 }

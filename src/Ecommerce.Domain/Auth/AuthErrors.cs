@@ -28,4 +28,7 @@ public static class AuthErrors
 
     public static Error InvalidCurrentPassword() =>
         new Error("La contraseña actual no es correcta").WithMetadata("Code", UnauthorizedCode);
+
+    public static Error InvalidState(string message) =>
+        new Error(message).WithMetadata("Code", "Validation");
 }

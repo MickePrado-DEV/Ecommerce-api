@@ -1,6 +1,7 @@
 ﻿// Registro de servicios de la capa Application (sin EF ni HTTP).
 using Ecommerce.Application.Common.Behaviors;
 using Ecommerce.Application.Features.Auth.Validators;
+using Ecommerce.Application.Features.Dispatch.Services;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,11 @@ public static class DependencyInjection
 
         // Pipeline: valida cada command/query ANTES de ejecutar el handler
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+        services.AddScoped<DispatchBatchService>();
+        services.AddScoped<RoutePlannerService>();
+        services.AddScoped<RouteAssignmentService>();
+        services.AddScoped<RouteExecutionService>();
 
         return services;
     }

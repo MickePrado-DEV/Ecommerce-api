@@ -1,6 +1,7 @@
 // Checkout: CreateOrderCommand crea pedido, reserva stock y vacía carrito en transacción.
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.Common;
+using Ecommerce.Application.DTOs.Addresses;
 using Ecommerce.Application.DTOs.Checkout;
 using Ecommerce.Domain.Cart;
 using Ecommerce.Domain.Entities;
@@ -78,6 +79,7 @@ public class CreateOrderCommandHandler(
             OrderNumber = orders.GenerateOrderNumber(),
             UserId = request.UserId,
             Status = OrderStatus.PendingPayment,
+            DispatchStatus = DispatchStatus.Pending,
             Subtotal = subtotal,
             DiscountAmount = discount,
             CouponCode = couponCode,
@@ -171,7 +173,10 @@ public class CreateOrderCommandHandler(
                 State = address.State,
                 PostalCode = address.PostalCode,
                 Country = address.Country,
-                Phone = address.Phone
+                Phone = address.Phone,
+                Latitude = address.Latitude,
+                Longitude = address.Longitude,
+                AddressText = FormatAddressLine(address),
             });
         }
 
@@ -188,6 +193,17 @@ public class CreateOrderCommandHandler(
             Country = request.Country!,
             Phone = request.Phone!
         });
+    }
+
+    private static string FormatAddressLine(AddressDto address)
+    {
+        var streetLine = string.Join(" ", new[]
+        {
+            address.Street,
+            address.ExternalNumber,
+            string.IsNullOrWhiteSpace(address.InternalNumber) ? null : $"Int. {address.InternalNumber}",
+        }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        return $"{streetLine}, {address.Neighborhood}, {address.City}, {address.State} {address.PostalCode}";
     }
 
 }

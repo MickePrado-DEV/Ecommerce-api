@@ -8,6 +8,12 @@ public class Order : BaseEntity
     public string OrderNumber { get; set; } = null!;
     public Guid UserId { get; set; }
     public OrderStatus Status { get; set; }
+    public DispatchStatus DispatchStatus { get; set; } = DispatchStatus.Pending;
+    public DateTime? ReadyAt { get; set; }
+    public DateTime? BatchedAt { get; set; }
+    public DateTime? RoutedAt { get; set; }
+    public DateTime? AssignedAt { get; set; }
+    public DateTime? DispatchDeliveredAt { get; set; }
     public decimal Subtotal { get; set; }
     public decimal DiscountAmount { get; set; }
     public string? CouponCode { get; set; }

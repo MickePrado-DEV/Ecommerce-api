@@ -28,9 +28,10 @@ public static class CatalogMapping
             v.OptionValues.Select(ov => ov.OptionValueId).ToList())).ToList(),
         p.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).ToList());
 
-    public static CatalogOptionDto ToCatalogOption(this ProductOption o) => new(
+    public static CatalogOptionDto ToCatalogOption(this ProductOption o, IEnumerable<OptionValue>? values = null) => new(
         o.Id, o.Name, o.SortOrder,
-        o.Values.OrderBy(v => v.SortOrder).Select(v => new CatalogOptionValueDto(v.Id, v.Value, v.SortOrder)).ToList());
+        (values ?? o.Values).OrderBy(v => v.SortOrder)
+            .Select(v => new CatalogOptionValueDto(v.Id, v.Value, v.Description, v.SortOrder)).ToList());
 
     public static PagedResult<ProductListItemDto> ToPaged(this (List<Product> Items, int Total) page, int pageNum, int pageSize) =>
         new(page.Items.Select(p => p.ToListItem()).ToList(), pageNum, pageSize, page.Total);

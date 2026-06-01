@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Ecommerce.Application.Abstractions.Persistence;
 using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Domain.Entities;
@@ -27,6 +28,23 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
             q = q.Where(f => f.Name.Contains(s) || f.Slug.Contains(s));
         }
 
+        if (query.NameInitials is { Length: > 0 } initials)
+        {
+            var letters = initials
+                .Select(x => x.Trim().ToUpperInvariant())
+                .Where(x => x.Length > 0)
+                .Select(x => x[0])
+                .ToList();
+            q = q.Where(f => letters.Any(ch => f.Name.ToUpper().StartsWith(ch.ToString())));
+        }
+
+        if (query.IdBuckets is { Length: > 0 } buckets)
+        {
+            var ranges = ParseIdBuckets(buckets);
+            if (ranges.Count > 0)
+                q = ApplySortOrderRanges(q, ranges);
+        }
+
         q = (query.SortKey?.ToLowerInvariant()) switch
         {
             "name" => desc ? q.OrderByDescending(f => f.Name) : q.OrderBy(f => f.Name),
@@ -46,14 +64,7 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
         var pageSize = Math.Clamp(query.PageSize, 1, 100);
         var desc = string.Equals(query.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
 
-        var q = db.Categories.AsNoTracking().Select(c => new CategoryAdminRowDto(
-            c.Id,
-            c.FamilyId,
-            c.Name,
-            c.Slug,
-            c.SortOrder,
-            c.IsActive,
-            c.Family.Name));
+        var q = db.Categories.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -64,19 +75,33 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
         if (!string.IsNullOrWhiteSpace(query.FamilyName))
         {
             var f = query.FamilyName.Trim();
-            q = q.Where(c => c.FamilyName.Contains(f));
+            q = q.Where(c => c.Family.Name.Contains(f));
         }
+
+        if (query.FamilyIds is { Length: > 0 } familyIds)
+            q = q.Where(c => familyIds.Contains(c.FamilyId));
 
         q = (query.SortKey?.ToLowerInvariant()) switch
         {
             "name" => desc ? q.OrderByDescending(c => c.Name) : q.OrderBy(c => c.Name),
-            "familyname" => desc ? q.OrderByDescending(c => c.FamilyName) : q.OrderBy(c => c.FamilyName),
+            "familyname" => desc ? q.OrderByDescending(c => c.Family.Name) : q.OrderBy(c => c.Family.Name),
             "id" => desc ? q.OrderByDescending(c => c.Id) : q.OrderBy(c => c.Id),
             _ => desc ? q.OrderByDescending(c => c.SortOrder) : q.OrderBy(c => c.SortOrder),
         };
 
         var total = await q.CountAsync(ct);
-        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var items = await q
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CategoryAdminRowDto(
+                c.Id,
+                c.FamilyId,
+                c.Name,
+                c.Slug,
+                c.SortOrder,
+                c.IsActive,
+                c.Family.Name))
+            .ToListAsync(ct);
         return (items, total);
     }
 
@@ -87,15 +112,7 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
         var pageSize = Math.Clamp(query.PageSize, 1, 100);
         var desc = string.Equals(query.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
 
-        var q = db.Subcategories.AsNoTracking().Select(s => new SubcategoryAdminRowDto(
-            s.Id,
-            s.CategoryId,
-            s.Name,
-            s.Slug,
-            s.SortOrder,
-            s.IsActive,
-            s.Category.Name,
-            s.Category.Family.Name));
+        var q = db.Subcategories.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -106,26 +123,45 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
         if (!string.IsNullOrWhiteSpace(query.CategoryName))
         {
             var c = query.CategoryName.Trim();
-            q = q.Where(x => x.CategoryName.Contains(c));
+            q = q.Where(x => x.Category.Name.Contains(c));
         }
 
         if (!string.IsNullOrWhiteSpace(query.FamilyName))
         {
             var f = query.FamilyName.Trim();
-            q = q.Where(x => x.FamilyName.Contains(f));
+            q = q.Where(x => x.Category.Family.Name.Contains(f));
         }
+
+        if (query.FamilyIds is { Length: > 0 } familyIds)
+            q = q.Where(x => familyIds.Contains(x.Category.FamilyId));
+
+        if (query.CategoryIds is { Length: > 0 } categoryIds)
+            q = q.Where(x => categoryIds.Contains(x.CategoryId));
 
         q = (query.SortKey?.ToLowerInvariant()) switch
         {
             "name" => desc ? q.OrderByDescending(x => x.Name) : q.OrderBy(x => x.Name),
-            "categoryname" => desc ? q.OrderByDescending(x => x.CategoryName) : q.OrderBy(x => x.CategoryName),
-            "familyname" => desc ? q.OrderByDescending(x => x.FamilyName) : q.OrderBy(x => x.FamilyName),
+            "categoryname" => desc ? q.OrderByDescending(x => x.Category.Name) : q.OrderBy(x => x.Category.Name),
+            "familyname" => desc ? q.OrderByDescending(x => x.Category.Family.Name) : q.OrderBy(x => x.Category.Family.Name),
             "id" => desc ? q.OrderByDescending(x => x.Id) : q.OrderBy(x => x.Id),
             _ => desc ? q.OrderByDescending(x => x.SortOrder) : q.OrderBy(x => x.SortOrder),
         };
 
         var total = await q.CountAsync(ct);
-        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var items = await q
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(s => new SubcategoryAdminRowDto(
+                s.Id,
+                s.CategoryId,
+                s.Category.FamilyId,
+                s.Name,
+                s.Slug,
+                s.SortOrder,
+                s.IsActive,
+                s.Category.Name,
+                s.Category.Family.Name))
+            .ToListAsync(ct);
         return (items, total);
     }
 
@@ -220,6 +256,42 @@ public class AdminCatalogRepository(EcommerceDbContext db) : IAdminCatalogReposi
         else db.Variants.Update(entity);
         await db.SaveChangesAsync(ct);
         return entity;
+    }
+
+    private static IQueryable<Family> ApplySortOrderRanges(
+        IQueryable<Family> query,
+        List<(int Min, int Max)> ranges)
+    {
+        var param = Expression.Parameter(typeof(Family), "f");
+        var sortOrder = Expression.Property(param, nameof(Family.SortOrder));
+        Expression? body = null;
+        foreach (var (min, max) in ranges)
+        {
+            var ge = Expression.GreaterThanOrEqual(sortOrder, Expression.Constant(min));
+            var le = Expression.LessThanOrEqual(sortOrder, Expression.Constant(max));
+            var range = Expression.AndAlso(ge, le);
+            body = body is null ? range : Expression.OrElse(body, range);
+        }
+
+        var predicate = Expression.Lambda<Func<Family, bool>>(body!, param);
+        return query.Where(predicate);
+    }
+
+    private static List<(int Min, int Max)> ParseIdBuckets(string[] buckets)
+    {
+        var list = new List<(int Min, int Max)>();
+        foreach (var raw in buckets)
+        {
+            var parts = raw.Split('-', StringSplitOptions.TrimEntries);
+            if (parts.Length == 2
+                && int.TryParse(parts[0], out var min)
+                && int.TryParse(parts[1], out var max))
+            {
+                list.Add((min, max));
+            }
+        }
+
+        return list;
     }
 
     public async Task DeleteVariantAsync(Guid id, CancellationToken ct = default)

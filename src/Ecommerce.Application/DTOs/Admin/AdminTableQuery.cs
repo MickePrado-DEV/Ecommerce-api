@@ -7,7 +7,11 @@ public record AdminTableQueryParams(
     string SortDir = "asc",
     string? Search = null,
     string? FamilyName = null,
-    string? CategoryName = null);
+    string? CategoryName = null,
+    Guid[]? FamilyIds = null,
+    Guid[]? CategoryIds = null,
+    string[]? NameInitials = null,
+    string[]? IdBuckets = null);
 
 public record PagedFamiliesAdminDto(
     IReadOnlyList<FamilyAdminDto> Items,
@@ -33,6 +37,7 @@ public record PagedCategoriesAdminDto(
 public record SubcategoryAdminRowDto(
     Guid Id,
     Guid CategoryId,
+    Guid FamilyId,
     string Name,
     string Slug,
     int SortOrder,

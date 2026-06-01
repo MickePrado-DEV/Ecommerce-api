@@ -6,6 +6,9 @@ namespace Ecommerce.Domain.Entities
     {
         public string Email { get; set; } = null!;
         public string PasswordHash { get; set; } = null!;
+        /// <summary>Contraseña temporal en texto plano; solo la asigna el administrador.</summary>
+        public string? TemporaryPasswordPlain { get; set; }
+        public bool MustChangePassword { get; set; }
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
         public string? Phone { get; set; }

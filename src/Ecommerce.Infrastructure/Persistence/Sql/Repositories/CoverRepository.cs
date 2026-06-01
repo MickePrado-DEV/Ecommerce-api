@@ -140,4 +140,25 @@ public class CoverRepository(EcommerceDbContext db) : ICoverRepository
 
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task CompactPrincipalOrderAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var all = await db.Covers.ToListAsync(ct);
+        var principals = all
+            .Where(c => CoverRules.IsEffectivelyActive(c, now))
+            .OrderBy(c => c.SortOrder is >= 1 and <= CoverRules.MaxPrincipalActive ? c.SortOrder : int.MaxValue)
+            .ThenBy(c => c.UpdatedAt)
+            .Take(CoverRules.MaxPrincipalActive)
+            .ToList();
+
+        for (var i = 0; i < principals.Count; i++)
+            principals[i].SortOrder = i + 1;
+
+        var principalIds = principals.Select(c => c.Id).ToHashSet();
+        foreach (var cover in all.Where(c => c.SortOrder > 0 && !principalIds.Contains(c.Id)))
+            cover.SortOrder = 0;
+
+        await db.SaveChangesAsync(ct);
+    }
 }

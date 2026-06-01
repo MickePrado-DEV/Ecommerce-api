@@ -20,6 +20,7 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductOption> ProductOptions => Set<ProductOption>();
     public DbSet<OptionValue> OptionValues => Set<OptionValue>();
+    public DbSet<ProductOptionAssignment> ProductOptionAssignments => Set<ProductOptionAssignment>();
     public DbSet<VariantOptionValue> VariantOptionValues => Set<VariantOptionValue>();
     public DbSet<Variant> Variants => Set<Variant>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
@@ -38,12 +39,18 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
     public DbSet<Driver> Drivers => Set<Driver>();
     public DbSet<DispatchTicket> DispatchTickets => Set<DispatchTicket>();
     public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<DispatchSettings> DispatchSettings => Set<DispatchSettings>();
+    public DbSet<DispatchBatch> DispatchBatches => Set<DispatchBatch>();
+    public DbSet<DispatchBatchOrder> DispatchBatchOrders => Set<DispatchBatchOrder>();
+    public DbSet<DeliveryRoute> DeliveryRoutes => Set<DeliveryRoute>();
+    public DbSet<DeliveryRouteStop> DeliveryRouteStops => Set<DeliveryRouteStop>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>().ToTable("users");
         modelBuilder.Entity<Role>().ToTable("roles");
         modelBuilder.Entity<Permission>().ToTable("permissions");
+        modelBuilder.Entity<Permission>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<UserRole>().ToTable("user_roles").HasKey(x => new { x.UserId, x.RoleId });
         modelBuilder.Entity<RolePermission>().ToTable("role_permissions").HasKey(x => new { x.RoleId, x.PermissionId });
         modelBuilder.Entity<RefreshToken>().ToTable("refresh_tokens");
@@ -55,6 +62,14 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
         modelBuilder.Entity<ProductImage>().ToTable("product_images");
         modelBuilder.Entity<ProductOption>().ToTable("product_options");
         modelBuilder.Entity<OptionValue>().ToTable("option_values");
+        modelBuilder.Entity<ProductOptionAssignment>().ToTable("product_option_assignments")
+            .HasKey(x => new { x.ProductId, x.ProductOptionId });
+        modelBuilder.Entity<ProductOptionAssignment>()
+            .HasOne(a => a.Product).WithMany(p => p.OptionAssignments).HasForeignKey(a => a.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ProductOptionAssignment>()
+            .HasOne(a => a.ProductOption).WithMany(o => o.ProductAssignments).HasForeignKey(a => a.ProductOptionId)
+            .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<VariantOptionValue>().ToTable("variant_option_values")
             .HasKey(x => new { x.VariantId, x.OptionValueId });
         modelBuilder.Entity<VariantOptionValue>()
@@ -97,9 +112,32 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
             .OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<DispatchTicket>().ToTable("dispatch_tickets");
         modelBuilder.Entity<Address>().ToTable("addresses");
+        modelBuilder.Entity<DispatchSettings>().ToTable("dispatch_settings");
+        modelBuilder.Entity<DispatchBatch>().ToTable("dispatch_batches");
+        modelBuilder.Entity<DispatchBatch>().HasIndex(b => b.Code).IsUnique();
+        modelBuilder.Entity<DispatchBatchOrder>().ToTable("dispatch_batch_orders");
+        modelBuilder.Entity<DispatchBatchOrder>().HasIndex(bo => bo.OrderId).IsUnique();
+        modelBuilder.Entity<DispatchBatchOrder>()
+            .HasOne(bo => bo.Batch).WithMany(b => b.BatchOrders).HasForeignKey(bo => bo.BatchId);
+        modelBuilder.Entity<DispatchBatchOrder>()
+            .HasOne(bo => bo.Order).WithMany().HasForeignKey(bo => bo.OrderId);
+        modelBuilder.Entity<DeliveryRoute>().ToTable("delivery_routes");
+        modelBuilder.Entity<DeliveryRoute>().HasIndex(r => r.Code).IsUnique();
+        modelBuilder.Entity<DeliveryRoute>()
+            .HasOne(r => r.Driver).WithMany().HasForeignKey(r => r.DriverId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<DeliveryRoute>()
+            .HasOne(r => r.Batch).WithMany(b => b.Routes).HasForeignKey(r => r.BatchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<DeliveryRouteStop>().ToTable("delivery_route_stops");
+        modelBuilder.Entity<DeliveryRouteStop>().HasIndex(s => new { s.RouteId, s.OrderId }).IsUnique();
+        modelBuilder.Entity<DeliveryRouteStop>().HasIndex(s => new { s.RouteId, s.StopIndex }).IsUnique();
+        modelBuilder.Entity<DeliveryRouteStop>()
+            .HasOne(s => s.Route).WithMany(r => r.Stops).HasForeignKey(s => s.RouteId);
+        modelBuilder.Entity<DeliveryRouteStop>()
+            .HasOne(s => s.Order).WithMany().HasForeignKey(s => s.OrderId);
 
         ConfigureEnumConversions(modelBuilder);
         ConfigureDecimals(modelBuilder);
+        ConfigureGeoDecimals(modelBuilder);
 
         modelBuilder.Entity<Address>().Property(a => a.Latitude).HasColumnType("decimal(10,7)");
         modelBuilder.Entity<Address>().Property(a => a.Longitude).HasColumnType("decimal(10,7)");
@@ -135,9 +173,15 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
     private static void ConfigureEnumConversions(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Order>().Property(o => o.Status).HasConversion<string>().HasMaxLength(30);
+        modelBuilder.Entity<Order>().Property(o => o.DispatchStatus).HasConversion<string>().HasMaxLength(30);
         modelBuilder.Entity<Payment>().Property(p => p.Status).HasConversion<string>().HasMaxLength(30);
         modelBuilder.Entity<Shipment>().Property(s => s.Status).HasConversion<string>().HasMaxLength(30);
         modelBuilder.Entity<StockMovement>().Property(s => s.Type).HasConversion<string>().HasMaxLength(30);
+        modelBuilder.Entity<DispatchBatch>().Property(b => b.Status).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<DeliveryRoute>().Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<DeliveryRoute>().Property(r => r.OriginType).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<DeliveryRouteStop>().Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<DispatchSettings>().Property(s => s.DefaultRouteOriginType).HasConversion<string>().HasMaxLength(20);
     }
 
     private static void ConfigureDecimals(ModelBuilder modelBuilder)
@@ -147,6 +191,24 @@ public class EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : 
             foreach (var prop in entity.GetProperties().Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
                 prop.SetColumnType("decimal(18,2)");
         }
+    }
+
+    private static void ConfigureGeoDecimals(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OrderAddress>().Property(a => a.Latitude).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<OrderAddress>().Property(a => a.Longitude).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<Driver>().Property(d => d.StartLatitude).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<Driver>().Property(d => d.StartLongitude).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DispatchBatch>().Property(b => b.CenterLat).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DispatchBatch>().Property(b => b.CenterLng).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DispatchBatch>().Property(b => b.RadiusKm).HasColumnType("decimal(8,3)");
+        modelBuilder.Entity<DispatchBatchOrder>().Property(bo => bo.DistanceKm).HasColumnType("decimal(8,3)");
+        modelBuilder.Entity<DeliveryRoute>().Property(r => r.OriginLat).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DeliveryRoute>().Property(r => r.OriginLng).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DeliveryRoute>().Property(r => r.TotalDistanceKm).HasColumnType("decimal(10,3)");
+        modelBuilder.Entity<DeliveryRouteStop>().Property(s => s.Lat).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DeliveryRouteStop>().Property(s => s.Lng).HasColumnType("decimal(10,7)");
+        modelBuilder.Entity<DispatchSettings>().Property(s => s.DefaultClusterRadiusKm).HasColumnType("decimal(8,3)");
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

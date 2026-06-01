@@ -101,7 +101,9 @@ public static class ApiExceptionMapper
                 "Ya existe un registro con esos datos."),
             547 => MapForeignKeyViolation(sql, env),
             515 => (HttpStatusCode.BadRequest, "Validation",
-                "Faltan campos obligatorios en la base de datos."),
+                env.IsDevelopment()
+                    ? $"Faltan campos obligatorios en la base de datos. Reinicia la API para actualizar el esquema (opciones globales). Detalle: {GetSqlErrorText(sql)}"
+                    : "Faltan campos obligatorios en la base de datos. Reinicia la API para actualizar el esquema."),
             -2 => (HttpStatusCode.GatewayTimeout, "Database.Timeout",
                 "La base de datos tardó demasiado en responder."),
             4060 => (HttpStatusCode.ServiceUnavailable, "Database.Unavailable",
@@ -164,9 +166,10 @@ public static class ApiExceptionMapper
     private static bool IsSchemaMismatch(Exception ex) =>
         ex switch
         {
-            SqlException { Number: 207 } => true,
-            DbUpdateException { InnerException: SqlException { Number: 207 } } => true,
+            SqlException { Number: 207 or 208 } => true,
+            DbUpdateException { InnerException: SqlException { Number: 207 or 208 } } => true,
             _ when ex.Message.Contains("Invalid column name", StringComparison.OrdinalIgnoreCase) => true,
+            _ when ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase) => true,
             { InnerException: not null } => IsSchemaMismatch(ex.InnerException),
             _ => false
         };

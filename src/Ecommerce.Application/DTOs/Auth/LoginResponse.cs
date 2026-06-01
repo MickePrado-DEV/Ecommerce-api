@@ -4,4 +4,5 @@ public record LoginResponse(
     string AccessToken,
     string RefreshToken,
     UserDto User,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    bool RequiresPasswordChange = false);

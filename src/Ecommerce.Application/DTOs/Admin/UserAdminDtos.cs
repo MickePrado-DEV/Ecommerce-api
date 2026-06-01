@@ -17,3 +17,12 @@ public record PagedUsersAdminDto(
     int PageSize);
 
 public record UpdateUserAdminRequest(bool? IsActive, IReadOnlyList<string>? RoleCodes);
+
+public record CreateUserAdminRequest(
+    string Email,
+    string Password,
+    string FirstName,
+    string LastName,
+    string? Phone,
+    bool IsActive,
+    IReadOnlyList<string> RoleCodes);

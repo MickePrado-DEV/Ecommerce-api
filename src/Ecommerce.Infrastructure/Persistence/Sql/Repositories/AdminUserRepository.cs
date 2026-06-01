@@ -33,21 +33,38 @@ public class AdminUserRepository(EcommerceDbContext db) : IAdminUserRepository
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
-    public async Task UpdateAsync(Guid id, bool isActive, IReadOnlyList<string> roleCodes, CancellationToken ct = default)
+    public async Task<User> CreateAsync(User user, IReadOnlyList<string> roleCodes, CancellationToken ct = default)
+    {
+        db.Users.Add(user);
+        await db.SaveChangesAsync(ct);
+
+        var roles = await db.Roles.Where(r => roleCodes.Contains(r.Code)).ToListAsync(ct);
+        foreach (var role in roles)
+            db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
+
+        await db.SaveChangesAsync(ct);
+        return (await GetByIdAsync(user.Id, ct))!;
+    }
+
+    public async Task UpdateAsync(Guid id, bool? isActive, IReadOnlyList<string>? roleCodes, CancellationToken ct = default)
     {
         var user = await db.Users
             .Include(u => u.UserRoles)
             .FirstOrDefaultAsync(u => u.Id == id, ct)
             ?? throw new InvalidOperationException("Usuario no encontrado");
 
-        user.IsActive = isActive;
+        if (isActive.HasValue)
+            user.IsActive = isActive.Value;
+
+        if (roleCodes is not null)
+        {
+            var roles = await db.Roles.Where(r => roleCodes.Contains(r.Code)).ToListAsync(ct);
+            db.UserRoles.RemoveRange(user.UserRoles);
+            foreach (var role in roles)
+                db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
+        }
+
         user.UpdatedAt = DateTime.UtcNow;
-
-        var roles = await db.Roles.Where(r => roleCodes.Contains(r.Code)).ToListAsync(ct);
-        db.UserRoles.RemoveRange(user.UserRoles);
-        foreach (var role in roles)
-            db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
-
         await db.SaveChangesAsync(ct);
     }
 }

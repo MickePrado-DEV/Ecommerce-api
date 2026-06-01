@@ -120,6 +120,7 @@ public class PayOrderCommandHandler(IOrderRepository orders, IInventoryRepositor
                 order.Payment.PaidAt = DateTime.UtcNow;
                 order.Payment.ProviderReference = $"MOCK-{Guid.NewGuid():N}";
                 order.Status = OrderStatus.Paid;
+                order.DispatchStatus = DispatchStatus.Paid;
                 await inventory.CommitReservationAsync(order.Id, ct);
             }
 

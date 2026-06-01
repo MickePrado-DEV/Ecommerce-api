@@ -61,6 +61,13 @@ public static class AuthEndpoints
             return (await sender.Send(new ChangePasswordCommand(userId.Value, req.CurrentPassword, req.NewPassword), ct)).ToHttpResult();
         }).RequireAuthorization();
 
+        auth.MapPost("/change-password/mandatory", async (MandatoryChangePasswordRequest req, ISender sender, HttpContext ctx, CancellationToken ct) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId is null) return Results.Unauthorized();
+            return (await sender.Send(new MandatoryChangePasswordCommand(userId.Value, req.NewPassword), ct)).ToHttpResult();
+        }).RequireAuthorization();
+
         return group;
     }
 }

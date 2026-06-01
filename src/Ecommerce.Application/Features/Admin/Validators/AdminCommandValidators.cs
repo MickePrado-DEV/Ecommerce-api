@@ -73,8 +73,22 @@ public class SaveDriverCommandValidator : AbstractValidator<SaveDriverCommand>
 {
     public SaveDriverCommandValidator()
     {
-        RuleFor(x => x.Name).NotEmpty();
-        RuleFor(x => x.Phone).NotEmpty();
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Phone).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Email).MaximumLength(256).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
+        RuleFor(x => x.LicenseNumber).MaximumLength(80);
+        RuleFor(x => x.VehicleType).MaximumLength(80);
+        RuleFor(x => x.VehiclePlate).MaximumLength(20);
+        RuleFor(x => x.Notes).MaximumLength(2000);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().When(x => x.CreateLoginAccount);
+    }
+}
+
+public class SetDriverTemporaryPasswordCommandValidator : AbstractValidator<SetDriverTemporaryPasswordCommand>
+{
+    public SetDriverTemporaryPasswordCommandValidator()
+    {
+        RuleFor(x => x.DriverId).NotEmpty();
     }
 }
 
@@ -97,18 +111,62 @@ public class ReorderCoversCommandValidator : AbstractValidator<ReorderCoversComm
     }
 }
 
-public class SaveProductOptionCommandValidator : AbstractValidator<SaveProductOptionCommand>
+public class SaveGlobalOptionCommandValidator : AbstractValidator<SaveGlobalOptionCommand>
 {
-    public SaveProductOptionCommandValidator()
+    public SaveGlobalOptionCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty();
     }
 }
 
-public class SaveOptionValueCommandValidator : AbstractValidator<SaveOptionValueCommand>
+public class SaveGlobalOptionValueCommandValidator : AbstractValidator<SaveGlobalOptionValueCommand>
 {
-    public SaveOptionValueCommandValidator()
+    public SaveGlobalOptionValueCommandValidator()
     {
         RuleFor(x => x.Value).NotEmpty();
+    }
+}
+
+public class AttachProductOptionCommandValidator : AbstractValidator<AttachProductOptionCommand>
+{
+    public AttachProductOptionCommandValidator()
+    {
+        RuleFor(x => x.OptionId).NotEmpty();
+        RuleFor(x => x.ValueIds).NotEmpty();
+    }
+}
+
+public class CreateUserAdminCommandValidator : AbstractValidator<CreateUserAdminCommand>
+{
+    public CreateUserAdminCommandValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Password).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.FirstName).NotEmpty();
+        RuleFor(x => x.LastName).NotEmpty();
+        RuleFor(x => x.RoleCodes).NotEmpty();
+    }
+}
+
+public class UpdateUserAdminCommandValidator : AbstractValidator<UpdateUserAdminCommand>
+{
+    public UpdateUserAdminCommandValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x).Must(x => x.IsActive.HasValue || x.RoleCodes is not null)
+            .WithMessage("Indica isActive y/o roleCodes para actualizar.");
+        When(x => x.RoleCodes is not null, () =>
+        {
+            RuleFor(x => x.RoleCodes!).NotEmpty();
+        });
+    }
+}
+
+public class UpdateRolePermissionsCommandValidator : AbstractValidator<UpdateRolePermissionsCommand>
+{
+    public UpdateRolePermissionsCommandValidator()
+    {
+        RuleFor(x => x.RoleId).NotEmpty();
+        RuleFor(x => x.PermissionCodes).NotNull();
     }
 }

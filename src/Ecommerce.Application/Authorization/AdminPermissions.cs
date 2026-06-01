@@ -23,13 +23,17 @@
         public const string OrdersManage = "admin.orders.manage";
         public const string ShipmentsView = "admin.shipments.view";
         public const string ShipmentsManage = "admin.shipments.manage";
+        public const string DispatchView = "admin.dispatch.view";
+        public const string DispatchManage = "admin.dispatch.manage";
         public const string UsersView = "admin.users.view";
         public const string UsersManage = "admin.users.manage";
+        public const string RolesView = "admin.roles.view";
+        public const string RolesManage = "admin.roles.manage";
 
         public static readonly string[] All =
         [ DashboardView, CoversView, CoversManage, FamiliesView, FamiliesManage, CategoriesView, CategoriesManage, SubcategoriesView, SubcategoriesManage,
                  ProductsView, ProductsManage, OptionsView, OptionsManage, StockView, StockManage, DriversView, DriversManage, OrdersView, OrdersManage, ShipmentsView, ShipmentsManage,
-                 UsersView, UsersManage
+                 DispatchView, DispatchManage, UsersView, UsersManage, RolesView, RolesManage
                ];
     }
 }

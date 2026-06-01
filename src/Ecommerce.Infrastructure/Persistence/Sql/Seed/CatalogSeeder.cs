@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ecommerce.Application.Common;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Domain.Emums;
 using Microsoft.EntityFrameworkCore;
@@ -112,6 +113,40 @@ internal static class CatalogSeeder
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Opciones globales Talla/Color/Sexo (equivalente a OptionSeeder Laravel).</summary>
+    public static async Task EnsureGlobalOptionsAsync(EcommerceDbContext db, CancellationToken ct = default)
+    {
+        if (await db.ProductOptions.AnyAsync(ct))
+            return;
+
+        var order = 1;
+        foreach (var template in CatalogOptionTemplates.All)
+        {
+            var option = new ProductOption
+            {
+                Name = template.Name,
+                OptionType = template.Name == "Color" ? 2 : 1,
+                SortOrder = order++,
+            };
+            db.ProductOptions.Add(option);
+            await db.SaveChangesAsync(ct);
+
+            var valueOrder = 1;
+            foreach (var item in template.Values)
+            {
+                db.OptionValues.Add(new OptionValue
+                {
+                    ProductOptionId = option.Id,
+                    Value = item.Value,
+                    Description = item.Description,
+                    SortOrder = valueOrder++,
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
     public static async Task EnsureProductsAsync(EcommerceDbContext db, CancellationToken ct = default)
     {
         if (!await db.Families.AnyAsync(f => f.Name == TaxonomyMarkerFamily, ct))
@@ -188,42 +223,52 @@ internal static class CatalogSeeder
             return;
         }
 
-        var optionGroups = new List<List<OptionValue>>();
-        var optionOrder = 1;
+        var globalOptions = await db.ProductOptions.Include(o => o.Values).ToListAsync(ct);
+        var assignmentGroups = new List<List<OptionValue>>();
+
         foreach (var template in templates)
         {
-            var productOption = new ProductOption
-            {
-                ProductId = product.Id,
-                Name = template.Name,
-                SortOrder = optionOrder++,
-            };
-            db.ProductOptions.Add(productOption);
-            await db.SaveChangesAsync(ct);
+            var globalOption = globalOptions.FirstOrDefault(o =>
+                string.Equals(o.Name, template.Name, StringComparison.OrdinalIgnoreCase));
+            if (globalOption is null) continue;
 
-            var values = new List<OptionValue>();
-            var valueOrder = 1;
+            var selected = new List<OptionValue>();
             foreach (var item in template.Values)
             {
-                var display = template.Name == "Color" && item.Description is not null
-                    ? item.Description
-                    : item.Description ?? item.Value;
-                var optionValue = new OptionValue
-                {
-                    ProductOptionId = productOption.Id,
-                    Value = display,
-                    SortOrder = valueOrder++,
-                };
-                db.OptionValues.Add(optionValue);
-                values.Add(optionValue);
+                var match = globalOption.Values.FirstOrDefault(v =>
+                    string.Equals(v.Value, item.Value, StringComparison.OrdinalIgnoreCase)
+                    || (item.Description is not null && string.Equals(v.Description, item.Description, StringComparison.OrdinalIgnoreCase)));
+                if (match is not null)
+                    selected.Add(match);
             }
 
-            await db.SaveChangesAsync(ct);
-            optionGroups.Add(values);
+            if (selected.Count == 0)
+                selected = globalOption.Values.OrderBy(v => v.SortOrder).Take(Math.Min(3, globalOption.Values.Count)).ToList();
+
+            var features = selected
+                .Select(v => new OptionFeatureSnapshot(v.Id, v.Value, v.Description))
+                .ToList();
+
+            db.ProductOptionAssignments.Add(new ProductOptionAssignment
+            {
+                ProductId = product.Id,
+                ProductOptionId = globalOption.Id,
+                FeaturesJson = OptionFeatureJson.Serialize(features),
+            });
+
+            assignmentGroups.Add(selected);
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        if (assignmentGroups.Count == 0)
+        {
+            await AddSimpleVariantAsync(db, product, basePrice, ctx.Id, usedSkus, random, ct);
+            return;
         }
 
         var comboIndex = 0;
-        foreach (var combo in Cartesian(optionGroups))
+        foreach (var combo in Cartesian(assignmentGroups))
         {
             comboIndex++;
             var price = basePrice + (comboIndex > 1 ? random.Next(0, 3) * 5m : 0m);
@@ -355,8 +400,7 @@ internal static class CatalogSeeder
         await db.StockMovements.ExecuteDeleteAsync(ct);
         await db.Inventories.ExecuteDeleteAsync(ct);
         await db.Variants.ExecuteDeleteAsync(ct);
-        await db.OptionValues.ExecuteDeleteAsync(ct);
-        await db.ProductOptions.ExecuteDeleteAsync(ct);
+        await db.ProductOptionAssignments.ExecuteDeleteAsync(ct);
         await db.ProductImages.ExecuteDeleteAsync(ct);
         await db.ProductReviews.ExecuteDeleteAsync(ct);
         await db.WishlistItems.ExecuteDeleteAsync(ct);

@@ -9,7 +9,15 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
     public LoginCommandValidator()
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.Password).NotEmpty().MinimumLength(1);
+    }
+}
+
+public class MandatoryChangePasswordCommandValidator : AbstractValidator<MandatoryChangePasswordCommand>
+{
+    public MandatoryChangePasswordCommandValidator()
+    {
+        RuleFor(x => x.NewPassword).NotEmpty().MinimumLength(8).MaximumLength(128);
     }
 }
 

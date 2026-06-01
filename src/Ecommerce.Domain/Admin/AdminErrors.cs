@@ -12,4 +12,10 @@ public static class AdminErrors
 
     public static Error InvalidState(string message) =>
         new Error(message).WithMetadata("Code", ValidationCode);
+
+    public static Error Validation(string message) =>
+        new Error(message).WithMetadata("Code", ValidationCode);
+
+    public static Error Conflict(string message) =>
+        new Error(message).WithMetadata("Code", "Conflict");
 }

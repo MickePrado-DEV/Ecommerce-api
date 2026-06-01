@@ -96,4 +96,40 @@ public class UserRepository(EcommerceDbContext db) : IUserRepository
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
+
+    public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+        db.Users
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id, ct);
+
+    public async Task SetTemporaryPasswordAsync(Guid userId, string temporaryPasswordPlain, CancellationToken ct = default)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new InvalidOperationException("Usuario no encontrado");
+        user.TemporaryPasswordPlain = temporaryPasswordPlain;
+        user.MustChangePassword = true;
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"));
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task CompleteMandatoryPasswordChangeAsync(Guid userId, string passwordHash, CancellationToken ct = default)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new InvalidOperationException("Usuario no encontrado");
+        user.PasswordHash = passwordHash;
+        user.TemporaryPasswordPlain = null;
+        user.MustChangePassword = false;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateEmailAsync(Guid userId, string email, CancellationToken ct = default)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new InvalidOperationException("Usuario no encontrado");
+        user.Email = email.Trim();
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
 }

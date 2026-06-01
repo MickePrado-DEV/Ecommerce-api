@@ -19,10 +19,22 @@ public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt, ID
     public async Task<Result<LoginResponse>> Handle(LoginCommand request, CancellationToken ct)
     {
         var user = await users.GetByEmailWithRolesAsync(request.Email, ct);
-        if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (user is null || !VerifyPassword(user, request.Password))
             return Result.Fail<LoginResponse>(AuthErrors.InvalidCredentials());
 
         return Result.Ok(await BuildLoginResponseAsync(user, users, jwt, drivers, ct));
+    }
+
+    internal static bool VerifyPassword(User user, string password)
+    {
+        if (user.MustChangePassword && !string.IsNullOrEmpty(user.TemporaryPasswordPlain))
+        {
+            if (string.Equals(password, user.TemporaryPasswordPlain, StringComparison.Ordinal))
+                return true;
+        }
+
+        return !string.IsNullOrEmpty(user.PasswordHash)
+               && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
     }
 
     internal static async Task<LoginResponse> BuildLoginResponseAsync(
@@ -33,13 +45,25 @@ public class LoginCommandHandler(IUserRepository users, IJwtTokenService jwt, ID
         var refresh = jwt.GenerateRefreshToken();
         await users.SaveRefreshTokenAsync(user.Id, refresh.Hash, refresh.ExpiresAt, ct);
         var driver = await drivers.GetByUserIdAsync(user.Id, ct);
-        return new LoginResponse(access, refresh.Token, await ToUserDtoAsync(user, driver), permissions);
+        var requiresChange = user.MustChangePassword;
+        return new LoginResponse(
+            access,
+            refresh.Token,
+            await ToUserDtoAsync(user, driver),
+            permissions,
+            requiresChange);
     }
 
     internal static Task<UserDto> ToUserDtoAsync(User user, Domain.Entities.Driver? driver) =>
         Task.FromResult(new UserDto(
-            user.Id, user.Email, user.FirstName, user.LastName, user.Roles,
-            driver?.Id, user.Phone));
+            user.Id,
+            user.Email,
+            user.FirstName,
+            user.LastName,
+            user.Roles,
+            driver?.Id,
+            user.Phone,
+            user.MustChangePassword));
 }
 
 public record RegisterCustomerCommand(

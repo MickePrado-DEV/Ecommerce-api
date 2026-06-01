@@ -7,4 +7,5 @@ public record UserDto(
     string LastName,
     IReadOnlyList<string> Roles,
     Guid? DriverId = null,
-    string? Phone = null);
+    string? Phone = null,
+    bool MustChangePassword = false);

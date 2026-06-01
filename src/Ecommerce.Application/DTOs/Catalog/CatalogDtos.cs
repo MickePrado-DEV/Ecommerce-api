@@ -5,7 +5,7 @@ public record CategoryDto(Guid Id, string Name, string Slug, IReadOnlyList<Subca
 public record SubcategoryDto(Guid Id, string Name, string Slug);
 public record ProductListItemDto(Guid Id, string Name, string Slug, decimal Price, string? PrimaryImage);
 public record CatalogOptionDto(Guid Id, string Name, int SortOrder, IReadOnlyList<CatalogOptionValueDto> Values);
-public record CatalogOptionValueDto(Guid Id, string Value, int SortOrder);
+public record CatalogOptionValueDto(Guid Id, string Value, string? Description, int SortOrder);
 public record ProductDetailDto(
     Guid Id,
     string Name,

@@ -1,7 +1,7 @@
 // Handlers admin: dashboard, covers, catálogo CRUD, inventario, pedidos, envíos, opciones de producto.
 using Ecommerce.Application.Abstractions;
-using Ecommerce.Application.Abstractions;
 using Ecommerce.Application.Abstractions.Persistence;
+using Ecommerce.Application.Common;
 using Ecommerce.Application.DTOs.Admin;
 using Ecommerce.Application.DTOs.Inventory;
 using Ecommerce.Application.DTOs.Orders;
@@ -121,22 +121,20 @@ public class SaveCoverCommandHandler(ICoverRepository repo, ICoverImageStorage i
 
             if (!alreadyEffective && activeCount >= CoverRules.MaxPrincipalActive)
             {
-                return Result.Fail<CoverAdminDto>(AdminErrors.InvalidState(
-                    $"Solo puede haber {CoverRules.MaxPrincipalActive} portadas activas y vigentes."));
+                // Ya hay 5 activas: la nueva (o reactivada) queda inactiva sin slot principal
+                wantActive = false;
+                sortOrder = 0;
             }
-
-            if (existing is not null && existing.SortOrder is >= 1 and <= CoverRules.MaxPrincipalActive)
+            else if (existing is not null && existing.SortOrder is >= 1 and <= CoverRules.MaxPrincipalActive)
+            {
                 sortOrder = existing.SortOrder;
+            }
             else
             {
                 var next = await repo.GetNextPrincipalOrderAsync(ct);
-                if (next is null)
-                {
-                    return Result.Fail<CoverAdminDto>(AdminErrors.InvalidState(
-                        $"Solo puede haber {CoverRules.MaxPrincipalActive} portadas activas y vigentes."));
-                }
-
-                sortOrder = next.Value;
+                sortOrder = next ?? 0;
+                if (sortOrder == 0)
+                    wantActive = false;
             }
         }
 
@@ -153,6 +151,9 @@ public class SaveCoverCommandHandler(ICoverRepository repo, ICoverImageStorage i
         };
 
         var saved = await repo.SaveAsync(entity, ct);
+        if (!wantActive && entity.SortOrder == 0)
+            await repo.CompactPrincipalOrderAsync(ct);
+
         return Result.Ok(AdminCoverMapping.Map(saved, now));
     }
 }
@@ -170,6 +171,7 @@ public class DeleteCoverCommandHandler(ICoverRepository repo, ICoverImageStorage
 
         imageStorage.TryDeleteByUrl(cover.ImageUrl);
         await repo.DeleteAsync(request.Id, ct);
+        await repo.CompactPrincipalOrderAsync(ct);
         return Result.Ok();
     }
 }
@@ -190,6 +192,7 @@ public class ReorderCoversCommandHandler(ICoverRepository repo) : IRequestHandle
         {
             await repo.DeactivateExpiredAsync(ct);
             await repo.ReorderPrincipalAsync(request.Ids, ct);
+            await repo.CompactPrincipalOrderAsync(ct);
             return Result.Ok();
         }
         catch (InvalidOperationException ex)
@@ -499,21 +502,22 @@ public class ListAdminOrdersQueryHandler(IOrderRepository orders)
 
 public record GetAdminOrderQuery(Guid OrderId) : IRequest<Result<OrderDetailDto>>;
 
-public class GetAdminOrderQueryHandler(IOrderRepository orders)
+public class GetAdminOrderQueryHandler(IOrderRepository orders, IDispatchRepository dispatch)
     : IRequestHandler<GetAdminOrderQuery, Result<OrderDetailDto>>
 {
     public async Task<Result<OrderDetailDto>> Handle(GetAdminOrderQuery request, CancellationToken ct)
     {
         var order = await orders.GetByIdAsync(request.OrderId, ct);
-        return order is null
-            ? Result.Fail<OrderDetailDto>(AdminErrors.NotFound("Order", request.OrderId))
-            : Result.Ok(OrderMapping.ToDetail(order));
+        if (order is null)
+            return Result.Fail<OrderDetailDto>(AdminErrors.NotFound("Order", request.OrderId));
+        var dispatchInfo = await dispatch.GetOrderDispatchInfoAsync(request.OrderId, ct);
+        return Result.Ok(OrderMapping.ToDetail(order, dispatch: dispatchInfo));
     }
 }
 
 public record MarkOrderReadyToDispatchCommand(Guid OrderId) : IRequest<Result>;
 
-public class MarkOrderReadyToDispatchCommandHandler(IOrderRepository orders)
+public class MarkOrderReadyToDispatchCommandHandler(IOrderRepository orders, IDispatchRepository dispatch)
     : IRequestHandler<MarkOrderReadyToDispatchCommand, Result>
 {
     public async Task<Result> Handle(MarkOrderReadyToDispatchCommand request, CancellationToken ct)
@@ -523,7 +527,13 @@ public class MarkOrderReadyToDispatchCommandHandler(IOrderRepository orders)
             return Result.Fail(AdminErrors.NotFound("Order", request.OrderId));
         if (order.Status != OrderStatus.Paid)
             return Result.Fail(AdminErrors.InvalidState("La orden debe estar pagada"));
-        await orders.UpdateStatusAsync(request.OrderId, OrderStatus.ReadyToDispatch, ct);
+
+        var locked = order.DispatchStatus is DispatchStatus.Batched or DispatchStatus.Routed
+            or DispatchStatus.Assigned or DispatchStatus.InTransit or DispatchStatus.Delivered;
+        if (locked)
+            return Result.Fail(AdminErrors.InvalidState("El pedido ya está en proceso de despacho por lotes/rutas."));
+
+        await dispatch.MarkOrderDispatchReadyAsync(order, ct);
         return Result.Ok();
     }
 }
@@ -544,19 +554,20 @@ public class GenerateOrderTicketPdfQueryHandler(IShipmentRepository shipments, I
 
 // --- Shipments & drivers ---
 
-public record ListShipmentsAdminQuery(int Page, int PageSize) : IRequest<Result<IReadOnlyList<ShipmentSummaryDto>>>;
+public record ListShipmentsAdminQuery(int Page, int PageSize) : IRequest<Result<PagedShipmentsAdminDto>>;
 
 public class ListShipmentsAdminQueryHandler(IShipmentRepository shipments)
-    : IRequestHandler<ListShipmentsAdminQuery, Result<IReadOnlyList<ShipmentSummaryDto>>>
+    : IRequestHandler<ListShipmentsAdminQuery, Result<PagedShipmentsAdminDto>>
 {
-    public async Task<Result<IReadOnlyList<ShipmentSummaryDto>>> Handle(ListShipmentsAdminQuery request, CancellationToken ct)
+    public async Task<Result<PagedShipmentsAdminDto>> Handle(ListShipmentsAdminQuery request, CancellationToken ct)
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var list = await shipments.ListAsync(page, pageSize, ct);
-        return Result.Ok((IReadOnlyList<ShipmentSummaryDto>)list.Select(s => new ShipmentSummaryDto(
-            s.Id, s.OrderId, s.Status.ToString(), s.TrackingNumber,
-            s.Driver?.Name, s.CreatedAt)).ToList());
+        var (list, total) = await shipments.ListAsync(page, pageSize, ct);
+        var items = list.Select(s => new ShipmentSummaryDto(
+            s.Id, s.OrderId, s.Order.OrderNumber, s.Status.ToString(), s.TrackingNumber,
+            s.Driver?.Name, s.CreatedAt)).ToList();
+        return Result.Ok(new PagedShipmentsAdminDto(items, total, page, pageSize));
     }
 }
 
@@ -636,27 +647,120 @@ public class ListDriversQueryHandler(IShipmentRepository shipments)
 {
     public async Task<Result<IReadOnlyList<DriverDto>>> Handle(ListDriversQuery request, CancellationToken ct)
     {
-        var drivers = await shipments.ListDriversAsync(ct);
-        return Result.Ok((IReadOnlyList<DriverDto>)drivers.Select(d => new DriverDto(d.Id, d.Name, d.Phone, d.IsActive)).ToList());
+        var drivers = await shipments.ListAllDriversAdminAsync(ct);
+        return Result.Ok((IReadOnlyList<DriverDto>)drivers.Select(d => AdminDriverMapping.Map(d)).ToList());
     }
 }
 
-public record SaveDriverCommand(Guid? Id, string Name, string Phone, bool IsActive) : IRequest<Result<DriverDto>>;
+public record SaveDriverCommand(
+    Guid? Id,
+    string Name,
+    string Phone,
+    string? Email,
+    string? LicenseNumber,
+    string? VehicleType,
+    string? VehiclePlate,
+    string? Notes,
+    bool IsActive,
+    bool CreateLoginAccount) : IRequest<Result<DriverDto>>;
 
-public class SaveDriverCommandHandler(IShipmentRepository shipments)
+public class SaveDriverCommandHandler(IShipmentRepository shipments, IUserRepository users)
     : IRequestHandler<SaveDriverCommand, Result<DriverDto>>
 {
     public async Task<Result<DriverDto>> Handle(SaveDriverCommand request, CancellationToken ct)
     {
-        var saved = await shipments.SaveDriverAsync(new Domain.Entities.Driver
+        Domain.Entities.Driver? existing = null;
+        if (request.Id is { } editId && editId != Guid.Empty)
+        {
+            existing = await shipments.GetDriverWithUserAsync(editId, ct);
+            if (existing is null)
+                return Result.Fail<DriverDto>(AdminErrors.NotFound("Driver", editId));
+        }
+
+        var driver = new Domain.Entities.Driver
         {
             Id = request.Id ?? Guid.Empty,
-            Name = request.Name,
-            Phone = request.Phone,
-            IsActive = request.IsActive
-        }, ct);
-        return Result.Ok(new DriverDto(saved.Id, saved.Name, saved.Phone, saved.IsActive));
+            UserId = existing?.UserId,
+            Name = request.Name.Trim(),
+            Phone = request.Phone.Trim(),
+            Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+            LicenseNumber = string.IsNullOrWhiteSpace(request.LicenseNumber) ? null : request.LicenseNumber.Trim(),
+            VehicleType = string.IsNullOrWhiteSpace(request.VehicleType) ? null : request.VehicleType.Trim(),
+            VehiclePlate = string.IsNullOrWhiteSpace(request.VehiclePlate) ? null : request.VehiclePlate.Trim(),
+            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
+            IsActive = request.IsActive,
+        };
+
+        var saved = await shipments.SaveDriverAsync(driver, ct);
+
+        var isNew = existing is null;
+        var shouldProvision = !string.IsNullOrWhiteSpace(saved.Email)
+            && (isNew || request.CreateLoginAccount || existing!.UserId is null);
+
+        string? generatedTemp = null;
+        if (shouldProvision)
+        {
+            var provision = await DriverAccountProvisioning.EnsureLoginAccountAsync(
+                saved,
+                saved.Email!,
+                users,
+                shipments,
+                ct);
+            if (provision.IsFailed)
+                return Result.Fail<DriverDto>(provision.Errors);
+
+            generatedTemp = provision.Value;
+            saved = (await shipments.GetDriverWithUserAsync(saved.Id, ct))!;
+        }
+
+        return Result.Ok(AdminDriverMapping.Map(saved, generatedTemp));
     }
+}
+
+public record SetDriverTemporaryPasswordCommand(Guid DriverId) : IRequest<Result<DriverAccessCredentialsDto>>;
+
+public class SetDriverTemporaryPasswordCommandHandler(IShipmentRepository shipments, IUserRepository users)
+    : IRequestHandler<SetDriverTemporaryPasswordCommand, Result<DriverAccessCredentialsDto>>
+{
+    public async Task<Result<DriverAccessCredentialsDto>> Handle(SetDriverTemporaryPasswordCommand request, CancellationToken ct)
+    {
+        var driver = await shipments.GetDriverWithUserAsync(request.DriverId, ct);
+        if (driver is null)
+            return Result.Fail<DriverAccessCredentialsDto>(AdminErrors.NotFound("Driver", request.DriverId));
+
+        if (string.IsNullOrWhiteSpace(driver.Email))
+            return Result.Fail<DriverAccessCredentialsDto>(AdminErrors.InvalidState("El conductor debe tener email para acceso a la app."));
+
+        var provision = await DriverAccountProvisioning.EnsureLoginAccountAsync(
+            driver,
+            driver.Email,
+            users,
+            shipments,
+            ct);
+
+        return provision.IsFailed
+            ? Result.Fail<DriverAccessCredentialsDto>(provision.Errors)
+            : Result.Ok(new DriverAccessCredentialsDto(provision.Value));
+    }
+}
+
+internal static class AdminDriverMapping
+{
+    public static DriverDto Map(Domain.Entities.Driver d, string? generatedTemporaryPassword = null) => new(
+        d.Id,
+        d.Name,
+        d.Phone,
+        d.Email,
+        d.LicenseNumber,
+        d.VehicleType,
+        d.VehiclePlate,
+        d.Notes,
+        d.IsActive,
+        d.UserId,
+        d.User?.Email ?? d.Email,
+        d.UserId.HasValue,
+        d.User?.MustChangePassword ?? false,
+        generatedTemporaryPassword);
 }
 
 public record DeleteDriverCommand(Guid Id) : IRequest<Result>;
@@ -670,92 +774,218 @@ public class DeleteDriverCommandHandler(IShipmentRepository shipments) : IReques
     }
 }
 
-// --- Product options ---
+// --- Global product options (catálogo Laravel) ---
 
-public record ListProductOptionsQuery(Guid ProductId) : IRequest<Result<IReadOnlyList<ProductOptionDto>>>;
+public record ListGlobalOptionsQuery() : IRequest<Result<IReadOnlyList<ProductOptionDto>>>;
 
-public class ListProductOptionsQueryHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
-    : IRequestHandler<ListProductOptionsQuery, Result<IReadOnlyList<ProductOptionDto>>>
+public class ListGlobalOptionsQueryHandler(IProductOptionRepository repo)
+    : IRequestHandler<ListGlobalOptionsQuery, Result<IReadOnlyList<ProductOptionDto>>>
 {
-    public async Task<Result<IReadOnlyList<ProductOptionDto>>> Handle(ListProductOptionsQuery request, CancellationToken ct)
+    public async Task<Result<IReadOnlyList<ProductOptionDto>>> Handle(ListGlobalOptionsQuery request, CancellationToken ct)
     {
-        if (await products.GetProductAsync(request.ProductId, ct) is null)
-            return Result.Fail<IReadOnlyList<ProductOptionDto>>(AdminErrors.NotFound("Product", request.ProductId));
-        var options = await repo.ListByProductAsync(request.ProductId, ct);
+        var options = await repo.ListAllAsync(ct);
         return Result.Ok((IReadOnlyList<ProductOptionDto>)options.Select(AdminProductOptionMapping.Map).ToList());
     }
 }
 
-public record SaveProductOptionCommand(Guid ProductId, Guid? OptionId, string Name, int OptionType, int SortOrder)
+public record SaveGlobalOptionCommand(Guid? OptionId, string Name, int OptionType, int SortOrder)
     : IRequest<Result<ProductOptionDto>>;
 
-public class SaveProductOptionCommandHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
-    : IRequestHandler<SaveProductOptionCommand, Result<ProductOptionDto>>
+public class SaveGlobalOptionCommandHandler(IProductOptionRepository repo)
+    : IRequestHandler<SaveGlobalOptionCommand, Result<ProductOptionDto>>
 {
-    public async Task<Result<ProductOptionDto>> Handle(SaveProductOptionCommand request, CancellationToken ct)
+    public async Task<Result<ProductOptionDto>> Handle(SaveGlobalOptionCommand request, CancellationToken ct)
     {
-        if (await products.GetProductAsync(request.ProductId, ct) is null)
-            return Result.Fail<ProductOptionDto>(AdminErrors.NotFound("Product", request.ProductId));
-        var saved = await repo.SaveOptionAsync(new ProductOption
+        ProductOption saved;
+        if (request.OptionId is { } id)
         {
-            Id = request.OptionId ?? Guid.Empty,
-            ProductId = request.ProductId,
-            Name = request.Name,
-            OptionType = request.OptionType is 1 or 2 ? request.OptionType : 1,
-            SortOrder = request.SortOrder
-        }, ct);
-        return Result.Ok(new ProductOptionDto(saved.Id, saved.ProductId, saved.Name, saved.OptionType, saved.SortOrder, []));
+            var existing = await repo.GetByIdAsync(id, ct);
+            if (existing is null)
+                return Result.Fail<ProductOptionDto>(AdminErrors.NotFound("ProductOption", id));
+            existing.Name = request.Name;
+            existing.OptionType = request.OptionType is 1 or 2 ? request.OptionType : 1;
+            existing.SortOrder = request.SortOrder;
+            saved = await repo.SaveOptionAsync(existing, ct);
+        }
+        else
+        {
+            saved = await repo.SaveOptionAsync(new ProductOption
+            {
+                Name = request.Name,
+                OptionType = request.OptionType is 1 or 2 ? request.OptionType : 1,
+                SortOrder = request.SortOrder,
+            }, ct);
+        }
+
+        var reloaded = await repo.GetByIdAsync(saved.Id, ct) ?? saved;
+        return Result.Ok(AdminProductOptionMapping.Map(reloaded));
     }
 }
 
-public record DeleteProductOptionCommand(Guid ProductId, Guid OptionId) : IRequest<Result>;
+public record DeleteGlobalOptionCommand(Guid OptionId) : IRequest<Result>;
 
-public class DeleteProductOptionCommandHandler(IProductOptionRepository repo)
-    : IRequestHandler<DeleteProductOptionCommand, Result>
+public class DeleteGlobalOptionCommandHandler(IProductOptionRepository repo)
+    : IRequestHandler<DeleteGlobalOptionCommand, Result>
 {
-    public async Task<Result> Handle(DeleteProductOptionCommand request, CancellationToken ct)
+    public async Task<Result> Handle(DeleteGlobalOptionCommand request, CancellationToken ct)
     {
-        await repo.DeleteOptionAsync(request.OptionId, request.ProductId, ct);
+        if (await repo.GetByIdAsync(request.OptionId, ct) is null)
+            return Result.Fail(AdminErrors.NotFound("ProductOption", request.OptionId));
+        if (await repo.HasAssignmentsAsync(request.OptionId, ct))
+            return Result.Fail(AdminErrors.Conflict("Esta opción está asociada a uno o más productos."));
+        await repo.DeleteOptionAsync(request.OptionId, ct);
         return Result.Ok();
     }
 }
 
-public record SaveOptionValueCommand(Guid ProductId, Guid OptionId, Guid? ValueId, string Value, int SortOrder)
+public record SaveGlobalOptionValueCommand(Guid OptionId, Guid? ValueId, string Value, string? Description, int SortOrder)
     : IRequest<Result<OptionValueDto>>;
 
-public class SaveOptionValueCommandHandler(IProductOptionRepository repo)
-    : IRequestHandler<SaveOptionValueCommand, Result<OptionValueDto>>
+public class SaveGlobalOptionValueCommandHandler(IProductOptionRepository repo)
+    : IRequestHandler<SaveGlobalOptionValueCommand, Result<OptionValueDto>>
 {
-    public async Task<Result<OptionValueDto>> Handle(SaveOptionValueCommand request, CancellationToken ct)
+    public async Task<Result<OptionValueDto>> Handle(SaveGlobalOptionValueCommand request, CancellationToken ct)
     {
-        if (await repo.GetAsync(request.OptionId, request.ProductId, ct) is null)
+        if (await repo.GetByIdAsync(request.OptionId, ct) is null)
             return Result.Fail<OptionValueDto>(AdminErrors.NotFound("ProductOption", request.OptionId));
+
         var saved = await repo.SaveValueAsync(new OptionValue
         {
             Id = request.ValueId ?? Guid.Empty,
             ProductOptionId = request.OptionId,
             Value = request.Value,
-            SortOrder = request.SortOrder
+            Description = request.Description,
+            SortOrder = request.SortOrder,
         }, ct);
-        return Result.Ok(new OptionValueDto(saved.Id, saved.Value, saved.SortOrder));
+        return Result.Ok(new OptionValueDto(saved.Id, saved.Value, saved.Description, saved.SortOrder));
     }
 }
 
-public record DeleteOptionValueCommand(Guid ProductId, Guid OptionId, Guid ValueId) : IRequest<Result>;
+public record DeleteGlobalOptionValueCommand(Guid OptionId, Guid ValueId) : IRequest<Result>;
 
-public class DeleteOptionValueCommandHandler(IProductOptionRepository repo)
-    : IRequestHandler<DeleteOptionValueCommand, Result>
+public class DeleteGlobalOptionValueCommandHandler(IProductOptionRepository repo)
+    : IRequestHandler<DeleteGlobalOptionValueCommand, Result>
 {
-    public async Task<Result> Handle(DeleteOptionValueCommand request, CancellationToken ct)
+    public async Task<Result> Handle(DeleteGlobalOptionValueCommand request, CancellationToken ct)
     {
+        var option = await repo.GetByIdAsync(request.OptionId, ct);
+        if (option is null)
+            return Result.Fail(AdminErrors.NotFound("ProductOption", request.OptionId));
+        if (option.Values.Count <= 1)
+            return Result.Fail(AdminErrors.Conflict("La opción debe tener al menos un valor."));
         await repo.DeleteValueAsync(request.ValueId, request.OptionId, ct);
         return Result.Ok();
+    }
+}
+
+// --- Product option assignments + variant generation ---
+
+public record ListProductOptionAssignmentsQuery(Guid ProductId) : IRequest<Result<IReadOnlyList<ProductOptionAssignmentDto>>>;
+
+public class ListProductOptionAssignmentsQueryHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
+    : IRequestHandler<ListProductOptionAssignmentsQuery, Result<IReadOnlyList<ProductOptionAssignmentDto>>>
+{
+    public async Task<Result<IReadOnlyList<ProductOptionAssignmentDto>>> Handle(ListProductOptionAssignmentsQuery request, CancellationToken ct)
+    {
+        if (await products.GetProductAsync(request.ProductId, ct) is null)
+            return Result.Fail<IReadOnlyList<ProductOptionAssignmentDto>>(AdminErrors.NotFound("Product", request.ProductId));
+
+        var assignments = await repo.ListAssignmentsAsync(request.ProductId, ct);
+        var dtos = assignments.Select(AdminProductOptionMapping.MapAssignment).ToList();
+        return Result.Ok((IReadOnlyList<ProductOptionAssignmentDto>)dtos);
+    }
+}
+
+public record AttachProductOptionCommand(Guid ProductId, Guid OptionId, IReadOnlyList<Guid> ValueIds)
+    : IRequest<Result<GenerateVariantsResultDto>>;
+
+public class AttachProductOptionCommandHandler(
+    IProductOptionRepository repo,
+    IAdminCatalogRepository products)
+    : IRequestHandler<AttachProductOptionCommand, Result<GenerateVariantsResultDto>>
+{
+    public async Task<Result<GenerateVariantsResultDto>> Handle(AttachProductOptionCommand request, CancellationToken ct)
+    {
+        if (await products.GetProductAsync(request.ProductId, ct) is null)
+            return Result.Fail<GenerateVariantsResultDto>(AdminErrors.NotFound("Product", request.ProductId));
+        if (await repo.GetByIdAsync(request.OptionId, ct) is null)
+            return Result.Fail<GenerateVariantsResultDto>(AdminErrors.NotFound("ProductOption", request.OptionId));
+        if (request.ValueIds.Count == 0)
+            return Result.Fail<GenerateVariantsResultDto>(AdminErrors.Validation("Selecciona al menos un valor."));
+
+        var existing = await repo.ListAssignmentsAsync(request.ProductId, ct);
+        if (existing.Any(a => a.ProductOptionId == request.OptionId))
+            return Result.Fail<GenerateVariantsResultDto>(AdminErrors.Conflict("Esta opción ya está asignada al producto."));
+
+        await repo.AttachOptionAsync(request.ProductId, request.OptionId, request.ValueIds, ct);
+        var result = await repo.GenerateVariantsAsync(request.ProductId, ct);
+        return Result.Ok(result);
+    }
+}
+
+public record DetachProductOptionCommand(Guid ProductId, Guid OptionId) : IRequest<Result<GenerateVariantsResultDto>>;
+
+public class DetachProductOptionCommandHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
+    : IRequestHandler<DetachProductOptionCommand, Result<GenerateVariantsResultDto>>
+{
+    public async Task<Result<GenerateVariantsResultDto>> Handle(DetachProductOptionCommand request, CancellationToken ct)
+    {
+        if (await products.GetProductAsync(request.ProductId, ct) is null)
+            return Result.Fail<GenerateVariantsResultDto>(AdminErrors.NotFound("Product", request.ProductId));
+
+        await repo.DetachOptionAsync(request.ProductId, request.OptionId, ct);
+        var result = await repo.GenerateVariantsAsync(request.ProductId, ct);
+        return Result.Ok(result);
+    }
+}
+
+public record GenerateProductVariantsCommand(Guid ProductId) : IRequest<Result<GenerateVariantsResultDto>>;
+
+public class GenerateProductVariantsCommandHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
+    : IRequestHandler<GenerateProductVariantsCommand, Result<GenerateVariantsResultDto>>
+{
+    public async Task<Result<GenerateVariantsResultDto>> Handle(GenerateProductVariantsCommand request, CancellationToken ct)
+    {
+        if (await products.GetProductAsync(request.ProductId, ct) is null)
+            return Result.Fail<GenerateVariantsResultDto>(AdminErrors.NotFound("Product", request.ProductId));
+
+        var result = await repo.GenerateVariantsAsync(request.ProductId, ct);
+        return Result.Ok(result);
+    }
+}
+
+public record ListProductVariantsQuery(Guid ProductId) : IRequest<Result<IReadOnlyList<VariantAdminDto>>>;
+
+public class ListProductVariantsQueryHandler(IProductOptionRepository repo, IAdminCatalogRepository products)
+    : IRequestHandler<ListProductVariantsQuery, Result<IReadOnlyList<VariantAdminDto>>>
+{
+    public async Task<Result<IReadOnlyList<VariantAdminDto>>> Handle(ListProductVariantsQuery request, CancellationToken ct)
+    {
+        if (await products.GetProductAsync(request.ProductId, ct) is null)
+            return Result.Fail<IReadOnlyList<VariantAdminDto>>(AdminErrors.NotFound("Product", request.ProductId));
+
+        var variants = await repo.ListVariantsAsync(request.ProductId, ct);
+        var dtos = variants.Select(v => new VariantAdminDto(
+            v.Id, v.ProductId, v.Sku, v.Price, v.IsActive, v.Inventory?.QuantityOnHand ?? 0)).ToList();
+        return Result.Ok((IReadOnlyList<VariantAdminDto>)dtos);
     }
 }
 
 internal static class AdminProductOptionMapping
 {
     public static ProductOptionDto Map(ProductOption o) => new(
-        o.Id, o.ProductId, o.Name, o.OptionType, o.SortOrder,
-        o.Values.OrderBy(v => v.SortOrder).Select(v => new OptionValueDto(v.Id, v.Value, v.SortOrder)).ToList());
+        o.Id, o.Name, o.OptionType, o.SortOrder,
+        o.Values.OrderBy(v => v.SortOrder).Select(v => new OptionValueDto(v.Id, v.Value, v.Description, v.SortOrder)).ToList());
+
+    public static ProductOptionAssignmentDto MapAssignment(ProductOptionAssignment a)
+    {
+        var selectedIds = OptionFeatureJson.Deserialize(a.FeaturesJson).Select(f => f.Id).ToHashSet();
+        var selected = a.ProductOption.Values
+            .Where(v => selectedIds.Contains(v.Id))
+            .OrderBy(v => v.SortOrder)
+            .Select(v => new OptionValueDto(v.Id, v.Value, v.Description, v.SortOrder))
+            .ToList();
+        return new ProductOptionAssignmentDto(
+            a.ProductOptionId, a.ProductOption.Name, a.ProductOption.OptionType, selected);
+    }
 }
