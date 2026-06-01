@@ -133,7 +133,7 @@ POST  /api/v1/orders/{id}/cancel
 
 ## Fase 3 — Pagos reales y webhooks ⏸️ (mock permanente)
 
-**Decisión:** Se mantiene el pago simulado (`POST /orders/{id}/pay` → referencia `MOCK-{guid}`). No se implementa pasarela real en este curso.
+**Decisión:** Se mantiene el pago simulado (`POST /orders/{id}/pay` → referencia `MOCK-{guid}`). No se implementa pasarela real en esta versión del proyecto.
 
 | # | Tarea | Estado |
 |---|--------|--------|

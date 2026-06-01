@@ -85,13 +85,34 @@ Family (familia)
 
 `In`, `Reservation`, `Sale`, `Return`, `Adjustment`
 
+## Scripts SQL (`scriptsSql/`)
+
+Además del bootstrap en código, el repo incluye **un schema y un seed por motor**:
+
+| Motor | Schema | Seed |
+|-------|--------|------|
+| SQL Server | `schema.sqlserver.sql` | `seed.sqlserver.sql` |
+| MySQL | `schema.mysql.sql` | `seed.mysql.sql` |
+| MariaDB | `schema.mariadb.sql` | `seed.mariadb.sql` |
+| PostgreSQL | `schema.postgresql.sql` | `seed.postgresql.sql` |
+
+Ejecución en LocalDB:
+
+```powershell
+cd scriptsSql
+.\run-all.ps1
+```
+
+El seed masivo incluye ~2003 usuarios, 1001 productos, 1000 pedidos, 1000 envíos, 1000 conductores, etc. Ver [`../scriptsSql/README.md`](../scriptsSql/README.md).
+
 ## EF Core
 
 - **DbContext:** `Infrastructure/Persistence/Sql/EcommerceDbContext.cs`
 - **Convención:** nombres de tabla en snake_case plural
 - **Enums:** guardados como `string` en SQL
 - **Decimales:** `decimal(18,2)` en precios y totales
-- **Inicialización:** `EnsureCreated` + `DbSeeder` (no migraciones EF en este proyecto)
+- **Inicialización:** `EnsureCreated` + `DbSeeder` (mínimo demo) o seed SQL (recomendado)
+- **Migraciones EF:** no usadas en este proyecto educativo
 
 ## Proveedores de BD
 
@@ -99,7 +120,7 @@ Family (familia)
 |----------|------------------------------|-----|
 | SqlServer | `SqlServer` | Desarrollo con LocalDB (perfil por defecto) |
 | Sqlite | `Sqlite` | Alternativa sin SQL Server |
-| MySql | — | No disponible hasta Pomelo EF10 en NuGet |
+| MySql / MariaDb / PostgreSql | Scripts SQL disponibles | EF runtime aún orientado a SqlServer/Sqlite |
 
 ## Errores y reglas de dominio (FluentResults)
 

@@ -1,8 +1,54 @@
 # Ecommerce API
 
+**Repositorio:** [github.com/MickePrado-DEV/Ecommerce-api](https://github.com/MickePrado-DEV/Ecommerce-api)  
+**Frontend:** [github.com/MickePrado-DEV/ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web)
+
 API REST de e-commerce en **.NET 10** para alimentar una **tienda web/mobile**, un **panel de administración** y una **app de repartidor**. El backend está **completo** para el ciclo de compra (catálogo → carrito → checkout → pago simulado → despacho → entrega).
 
 **URL base:** `http://localhost:5088/api/v1`
+
+---
+
+## Inicio rápido — correr el proyecto
+
+### 1. Clonar e instalar
+
+```powershell
+git clone https://github.com/MickePrado-DEV/Ecommerce-api.git
+cd Ecommerce-api
+dotnet restore
+dotnet build
+```
+
+### 2. Poblar la base de datos
+
+```powershell
+cd scriptsSql
+.\run-all.ps1
+```
+
+### 3. Arrancar la API
+
+```powershell
+cd ..\src\Ecommerce.Api
+dotnet run --launch-profile SqlServer
+```
+
+Comprueba: `GET http://localhost:5088/health` → `{ "status": "ok" }`
+
+### 4. Arrancar el frontend (otro terminal)
+
+```powershell
+git clone https://github.com/MickePrado-DEV/ecommerce-web.git
+cd ecommerce-web
+copy .env.example .env.local
+npm install
+npm run dev
+```
+
+Abre [http://localhost:3000](http://localhost:3000) con la API ya en marcha.
+
+Tutorial completo: [docs/00-guia-para-principiantes.md](docs/00-guia-para-principiantes.md)
 
 ---
 
@@ -69,7 +115,11 @@ ecommerce-api/
 │   └── Ecommerce.UnitTests/
 ├── docs/                           # Documentación técnica (índice en docs/README.md)
 ├── postman/                        # Colección + entorno local
-├── scriptsSql/                     # Scripts SQL de referencia (opcional)
+├── scriptsSql/                     # Schema + seed por motor (SQL Server, MySQL, PG…)
+│   ├── schema.sqlserver.sql
+│   ├── seed.sqlserver.sql
+│   ├── run-all.ps1
+│   └── tools/                      # generate-seed.mjs, build-scripts.mjs
 ├── Ecommerce.slnx                  # Solución
 └── README.md                       # Este archivo
 ```
@@ -117,8 +167,8 @@ Más detalle: [docs/01-arquitectura.md](docs/01-arquitectura.md)
 ### 1. Clonar e ir a la carpeta del API
 
 ```powershell
-git clone <url-del-repositorio>
-cd ecommerce-api
+git clone https://github.com/MickePrado-DEV/Ecommerce-api.git
+cd Ecommerce-api
 ```
 
 ### 2. Restaurar dependencias
@@ -127,7 +177,16 @@ cd ecommerce-api
 dotnet restore
 ```
 
-### 3. Arrancar la API
+### 3. Poblar la base de datos (recomendado)
+
+```powershell
+cd scriptsSql
+.\run-all.ps1
+```
+
+Carga ~1000+ registros por entidad (pedidos, envíos, usuarios, productos…) para probar listados paginados, despacho y admin.
+
+### 4. Arrancar la API
 
 **Opción A — SQL Server LocalDB (recomendado en Windows):**
 
@@ -152,9 +211,11 @@ Al iniciar, la API automáticamente:
 
 1. Crea las tablas si no existen (`EnsureCreated`).
 2. Ajusta el esquema si detecta una BD antigua.
-3. Inserta datos demo (`DbSeeder`): usuarios, catálogo, cupón `WELCOME10`.
+3. Inserta datos mínimos demo (`DbSeeder`) **solo si la BD está vacía**.
 
-### 4. Comprobar que responde
+Para datos masivos, usa `scriptsSql/run-all.ps1` (ver arriba).
+
+### 5. Comprobar que responde
 
 ```http
 GET http://localhost:5088/health
@@ -168,7 +229,7 @@ GET http://localhost:5088/health
 GET http://localhost:5088/ready
 ```
 
-### 5. Documentación interactiva (desarrollo)
+### 6. Documentación interactiva (desarrollo)
 
 | Recurso | URL |
 |---------|-----|
@@ -187,9 +248,10 @@ GET http://localhost:5088/ready
 
 | Demo | Valor |
 |------|--------|
-| Catálogo | 18 familias, 632 subcategorías, 50 productos (seed Laravel) |
+| Seed masivo | ~2003 usuarios, 1001 productos, 1000 pedidos, 1000 envíos |
+| Producto demo | slug `audifonos-pro-x`, variantes `APX-001-BLK`, `APX-001-WHT` |
 | Cupón | `WELCOME10` (10 %, subtotal mínimo 50) |
-| Reseed | `scripts/seed-catalog.ps1` o `SEED_RESET_CATALOG=true` al arrancar |
+| Regenerar seed | `node scriptsSql/tools/generate-seed.mjs` → `.\run-all.ps1` |
 
 ---
 
@@ -198,9 +260,9 @@ GET http://localhost:5088/ready
 1. Importar en Postman:
    - `postman/Ecommerce-API.postman_collection.json`
    - `postman/Ecommerce-Local.postman_environment.json`
-2. Seleccionar el entorno **Ecommerce Local**.
+2. Seleccionar el entorno **Ecommerce - Local**.
 3. Ejecutar **00 - Setup** → `Ready (BD)` y **Login Cliente** o **Login Admin**.
-4. Usar las carpetas por dominio o el flujo **Flujo Cliente** (compra completa).
+4. Usar **Flujo Cliente**, **Flujo Admin** o **Flujo Completo E2E** (Collection Runner).
 
 Guía: [postman/README.md](postman/README.md)
 
@@ -263,7 +325,8 @@ Listado completo: [docs/03-api-endpoints.md](docs/03-api-endpoints.md)
 
 | Si quieres… | Lee |
 |-------------|-----|
-| Empezar en .NET y entender el código | [docs/00-guia-para-principiantes.md](docs/00-guia-para-principiantes.md) |
+| Tutorial backend (de cero a despacho) | [docs/00-guia-para-principiantes.md](docs/00-guia-para-principiantes.md) |
+| Tutorial frontend (Next.js FSD) | [docs/11-guia-frontend-principiantes.md](docs/11-guia-frontend-principiantes.md) |
 | Arquitectura y capas | [docs/01-arquitectura.md](docs/01-arquitectura.md) |
 | Configurar y ejecutar | [docs/02-configuracion-y-ejecucion.md](docs/02-configuracion-y-ejecucion.md) |
 | Todas las rutas | [docs/03-api-endpoints.md](docs/03-api-endpoints.md) |
@@ -279,22 +342,37 @@ Listado completo: [docs/03-api-endpoints.md](docs/03-api-endpoints.md)
 
 | Completado | Pendiente / opcional |
 |------------|----------------------|
-| Tienda, admin, repartidor (API) | Frontend (React, mobile, etc.) |
-| CQRS, JWT, inventario, envíos | Pagos reales (Stripe, Niubiz, …) |
-| Wishlist, reseñas, cupones, opciones | Push, email, upload blob de imágenes |
-| Pago mock + tests + Postman | EF Migrations para despliegue productivo |
+| Tienda, admin, repartidor (API) | Pagos reales (Stripe, Niubiz, …) |
+| CQRS, JWT, inventario, envíos, PDF | Push, email, upload blob de imágenes |
+| Wishlist, reseñas, cupones, opciones | EF Migrations para despliegue productivo |
+| Seed masivo SQL + Postman E2E | — |
+| Frontend Next.js 16 + FSD | [ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web) |
+| Admin con listados paginados server-side | — |
 
 El backend API puede consumirse ya desde cualquier cliente HTTP.
 
-### Frontend (Next.js 15 + FSD)
+### Frontend (Next.js 16 + FSD)
 
-Guía completa para crear `ecommerce-web` (tienda + admin + repartidor), con código listo para copiar y pegar:
+Repositorio: **[github.com/MickePrado-DEV/ecommerce-web](https://github.com/MickePrado-DEV/ecommerce-web)**
 
+```powershell
+git clone https://github.com/MickePrado-DEV/ecommerce-web.git
+cd ecommerce-web
+copy .env.example .env.local
+npm install
+npm run dev
+```
+
+Documentación:
+
+- [Tutorial backend](docs/00-guia-para-principiantes.md)
+- [Tutorial frontend](docs/11-guia-frontend-principiantes.md)
 - [docs/10-frontend-nextjs-fsd-completo.md](docs/10-frontend-nextjs-fsd-completo.md)
 - [docs/INVENTARIO-FRONTEND-ARCHIVOS.md](docs/INVENTARIO-FRONTEND-ARCHIVOS.md)
+- [README del frontend](https://github.com/MickePrado-DEV/ecommerce-web/blob/master/README.md)
 
 ---
 
 ## Licencia y autor
 
-Proyecto educativo / portafolio (curso Udemy .NET). Creado por Miguel Angel Prado Garcia
+Proyecto personal / portafolio open source. **MickePrado-DEV** — Miguel Angel Prado Garcia

@@ -36,13 +36,16 @@ Guía **copy-paste** para el cliente web del ecommerce: **tienda**, **admin** y 
 
 ```powershell
 # API (otra terminal)
-cd C:\Udemy\.net\Ecommerce\ecommerce-api\src\Ecommerce.Api
+git clone https://github.com/MickePrado-DEV/Ecommerce-api.git
+cd Ecommerce-api/src/Ecommerce.Api
 dotnet run --launch-profile SqlServer
 
 # Frontend
-cd C:\Udemy\.net\Ecommerce
-npx create-next-app@latest ecommerce-web --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
+git clone https://github.com/MickePrado-DEV/ecommerce-web.git
 cd ecommerce-web
+copy .env.example .env.local
+npm install
+npm run dev
 ```
 
 ```powershell

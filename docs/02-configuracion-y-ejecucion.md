@@ -44,6 +44,32 @@ Equivalente a conectar en SSMS a `(localdb)\mssqllocaldb` y usar la base `ecomme
 
 Orígenes permitidos en `Cors:Origins` (por defecto `http://localhost:3000` para el frontend).
 
+## Poblar la base de datos (recomendado)
+
+Para desarrollo con datos masivos (~1000+ registros por entidad), usa los scripts SQL **antes** o **después** de arrancar la API:
+
+```powershell
+cd scriptsSql
+.\run-all.ps1
+```
+
+| Archivo | Qué hace |
+|---------|----------|
+| `schema.sqlserver.sql` | Borra y recrea tablas en LocalDB |
+| `seed.sqlserver.sql` | Inserta usuarios, productos, pedidos, envíos, etc. |
+
+Solo seed (esquema ya creado):
+
+```powershell
+.\run-all.ps1 -SeedOnly
+```
+
+Regenerar seeds con otro volumen: edita `BULK_COUNT` en `tools/generate-seed.mjs` y ejecuta `node scriptsSql/tools/generate-seed.mjs`.
+
+Detalle multi-motor (MySQL, PostgreSQL…): [`../scriptsSql/README.md`](../scriptsSql/README.md)
+
+> **Nota:** al arrancar, la API también ejecuta `EnsureCreated` + `DbSeeder` si la BD está vacía. Para pruebas de listados paginados y despacho, prefiere el seed SQL.
+
 ## Arrancar la API
 
 ```powershell
@@ -53,7 +79,7 @@ dotnet run --launch-profile SqlServer
 
 Al iniciar:
 1. `DatabaseBootstrap` ejecuta `EnsureCreatedAsync()` (crea tablas si no existen).
-2. `DbSeeder` inserta datos demo si no hay usuarios.
+2. `DbSeeder` inserta datos mínimos demo **solo si no hay usuarios** (no sustituye al seed masivo SQL).
 
 ## Logs (Serilog)
 
